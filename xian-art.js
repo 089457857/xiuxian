@@ -6,27 +6,30 @@
   function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const m = x => clamp(Math.round(f < 0 ? x * (1 + f) : x + (255 - x) * f), 0, 255); return '#' + ((1 << 24) | (m(n >> 16) << 16) | (m(n >> 8 & 255) << 8) | m(n & 255)).toString(16).slice(1); }
   function P(c, pts) { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); }
   let R = 1; const rnd = () => { R = (R * 16807) % 2147483647; return R / 2147483647; };
-  const lin = (c, c1, c2, y0, y1) => { const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, c1); g.addColorStop(1, c2); return g; };
+  const lin = (c, c1) => c1; // 平塗風：不做漸層
 
   // ---------------- 門派預設外觀 ----------------
   const BASE = {
     sword: { robe: '#eef4fb', shade: '#bccde4', trim: '#3a7fd0', trim2: '#2a5c9a', hair: '#2a2638', hair2: '#433d5c', iris: '#3a7fd0', acc: 'sword' },
-    pill: { robe: '#eef6e4', shade: '#c4dcae', trim: '#3c9a52', trim2: '#2a6c3a', hair: '#5a3424', hair2: '#7c4a34', iris: '#3c9a52', acc: 'pill' },
+    pill: { robe: '#dcf0d0', shade: '#c4dcae', trim: '#3c9a52', trim2: '#2a6c3a', hair: '#5a3424', hair2: '#7c4a34', iris: '#3c9a52', acc: 'pill' },
     talis: { robe: '#f1eafb', shade: '#cdbbe8', trim: '#7a4fd0', trim2: '#56349a', hair: '#1e1a2c', hair2: '#38304e', iris: '#8a5ae0', acc: 'talis' },
     vajra: { robe: '#f5b84c', shade: '#d48a2c', trim: '#b5432a', trim2: '#7e2a1a', hair: '#f2c9a0', hair2: '#e0b088', iris: '#5a3a20', acc: 'vajra', skin: '#f6cfa4' },
   };
   // 由角色資料組出外觀：門派 → 時裝 → 頭飾 → 正邪變色
   function lookOf(p, D) {
-    const w = (p && p.wear) || {}, sect = (p && p.sect) || 'sword';
+    const w = (p && p.wear) || {}, sect = (p && p.sect) || 'sword', lk = (p && p.look) || D.cleanLook(null, sect);
     let o = { ...BASE[sect] };
-    const oc = w.outfit && D.COS[w.outfit]; if (oc) Object.assign(o, oc.look, { acc: BASE[sect].acc, skin: BASE[sect].skin });
-    if (sect === 'vajra') { delete o.hairStyle; }
+    const oc = w.outfit && D.COS[w.outfit]; if (oc) { Object.assign(o, oc.look, { acc: BASE[sect].acc, skin: BASE[sect].skin }); delete o.hairStyle; }
     const hc = w.head && D.COS[w.head]; if (hc) o.head = hc.look.head;
-    if (p && p.path === 'x' && !(oc && oc.dark)) { // 邪道：同款式、暗色系、紅眼
-      o.robe = shade(o.robe, -.62); o.shade = shade(o.shade, -.66); o.trim = '#c0303a'; o.trim2 = '#7a1a22'; o.iris = '#e0303a'; o.evil = 1;
+    // 外貌：髮型（商城特殊款優先）、髮色（預設黑）、眼型、瞳色
+    const sh = w.hair && D.COS[w.hair]; o.hs = sh ? sh.look.hs : lk.hair;
+    const col = w.hcol && D.COS[w.hcol]; o.hair = col ? col.look.hair : D.LOOK.hairCol; o.hfx = col && col.look.hfx || '';
+    o.eye = lk.eye; o.iris = (D.LOOK.iris[lk.iris] || D.LOOK.iris.blue)[1];
+    if (p && p.path === 'x' && !(oc && oc.dark)) { // 邪道：暗色衣服＋紅瞳半瞇＋壞笑（髮色保留玩家自己的）
+      o.robe = shade(o.robe, -.62); o.shade = shade(o.shade, -.66); o.trim = '#c0303a'; o.trim2 = '#7a1a22'; o.evil = 1;
       if (o.cape) { o.cape = shade(o.cape, -.6); o.cape2 = shade(o.cape2 || o.cape, -.65); }
-      if (sect !== 'vajra') { o.hair = '#e8e4f0'; o.hair2 = '#b8b0cc'; }
     }
+    if (p && p.path === 'x') o.evil = 1;
     o.blade = bladeOf(p, D); o.aura = w.aura && D.COS[w.aura] ? D.COS[w.aura].fx : ''; o.trail = w.trail && D.COS[w.trail] ? D.COS[w.trail].fx : '';
     return o;
   }
@@ -43,56 +46,130 @@
   function bladeOf(p, D) { const k = p && p.wear && p.wear.weapon, c = k && D.COS[k]; if (c && c.sect === p.sect && BLADE[c.fx]) return c.fx; return p && p.path === 'x' ? 'xuemo' : 'qingming'; }
   function skinCol(p, D) { const k = p && p.wear && p.wear.weapon, c = k && D.COS[k]; return c && c.sect === p.sect ? (SKINCOL[c.fx] || (BLADE[c.fx] && BLADE[c.fx].col)) : null; }
 
-  // ---------------- Q 版角色 ----------------
+  // ---------------- Q 版角色（PUCCA 式：1.6 頭身、豆豆眼、平塗、圓點手、大武器） ----------------
+  // 腳底在 y=34，頭頂約 y=-40（含頭飾約 -56），武器最遠約 x=±62
   function chibi(ctx, o, pose = {}) {
-    const sk = o.skin || SKIN; ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    const ol = (w = 2.2) => { ctx.strokeStyle = OUT; ctx.lineWidth = w; ctx.stroke(); };
-    const fill = (c1, c2, y0, y1) => { ctx.fillStyle = c2 ? lin(ctx, c1, c2, y0, y1) : c1; ctx.fill(); };
-    const B = BLADE[o.blade || 'qingming'];
-    if (o.cape) { ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-24, 18, -20, 33); ctx.quadraticCurveTo(0, 37, 20, 33); ctx.quadraticCurveTo(24, 18, 10, 0); fill(o.cape, o.cape2 || o.cape, 0, 34); ol(); }
-    if (o.acc === 'sword') { ctx.save(); ctx.translate(9, -4); ctx.rotate(-.55); ctx.fillStyle = B.hilt; ctx.fillRect(-2.5, -30, 5, 10); ctx.strokeStyle = OUT; ctx.lineWidth = 1.6; ctx.strokeRect(-2.5, -30, 5, 10); ctx.fillStyle = B.guard; ctx.fillRect(-6, -21, 12, 3.5); ctx.strokeRect(-6, -21, 12, 3.5); ctx.restore(); }
-    if (o.acc === 'pill') { const pc = o.skinCol || '#e8a040'; ctx.save(); ctx.translate(-12, 8); ctx.beginPath(); ctx.arc(0, 4, 6, 0, 7); ctx.arc(0, -4, 4, 0, 7); fill(pc, shade(pc, -.3), -8, 10); ol(1.6); ctx.fillStyle = '#c0402a'; ctx.fillRect(-4, -1, 8, 2); ctx.restore(); }
-    if (o.hairStyle === 'long' && o.acc !== 'vajra') { ctx.beginPath(); ctx.moveTo(-20, -14); ctx.quadraticCurveTo(-24, 14, -15, 24); ctx.lineTo(15, 24); ctx.quadraticCurveTo(24, 14, 20, -14); ctx.closePath(); fill(o.hair2, o.hair, -14, 24); ol(); }
-    if (o.acc !== 'vajra') { ctx.beginPath(); ctx.ellipse(0, -15, 23, 22, 0, 0, 7); if (o.acc === 'sword' && o.hairStyle !== 'long') { ctx.moveTo(-6, 0); ctx.quadraticCurveTo(-4, 18, 4, 16); ctx.quadraticCurveTo(10, 10, 8, 0); } fill(o.hair, o.hair2, -37, 10); ol(); }
-    const st = pose.step || 0;
-    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.roundRect(sx * 5 - 3.5, 24 + st * sx, 7, 10, 3); fill('#3a3046', '#2a2234', 24, 34); ol(); }
-    ctx.beginPath(); ctx.moveTo(-11, 2); ctx.lineTo(11, 2); ctx.quadraticCurveTo(15, 16, 16, 27); ctx.quadraticCurveTo(0, 31, -16, 27); ctx.quadraticCurveTo(-15, 16, -11, 2); fill(o.robe, o.shade, 2, 30); ol();
-    ctx.save(); ctx.clip(); ctx.fillStyle = o.shade; ctx.globalAlpha = .55; ctx.beginPath(); ctx.moveTo(4, 2); ctx.lineTo(18, 2); ctx.lineTo(18, 32); ctx.lineTo(7, 32); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = o.trim; ctx.fillRect(-20, 24, 40, 8); ctx.fillStyle = o.trim2; ctx.fillRect(-20, 13, 40, 3.5);
-    if (o.pattern === 'cloud') { ctx.strokeStyle = o.trim; ctx.lineWidth = 1.3; for (const [x, y] of [[-7, 20], [6, 19]]) { ctx.beginPath(); ctx.arc(x, y, 2.4, 3.4, 6.6); ctx.arc(x + 3.4, y, 2, 3.4, 6.4); ctx.stroke(); } }
-    if (o.pattern === 'flame') { ctx.fillStyle = '#ffb040'; for (let x = -16; x < 16; x += 5) { ctx.beginPath(); ctx.moveTo(x, 24); ctx.quadraticCurveTo(x + 1, 19, x + 2.5, 16); ctx.quadraticCurveTo(x + 3, 20, x + 5, 24); ctx.fill(); } }
-    if (o.pattern === 'gold') { ctx.fillStyle = '#e8c050'; ctx.fillRect(-20, 23, 40, 1.6); ctx.fillRect(-20, 30, 40, 1.2); ctx.fillRect(-1, 16, 2, 8); }
-    if (o.pattern === 'sakura') { ctx.fillStyle = '#ffd0dc'; for (const [x, y] of [[-8, 8], [6, 20], [-3, 21], [9, 7], [-12, 19]]) for (let k = 0; k < 5; k++) { const a = k * 1.256; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 1.3, y + Math.sin(a) * 1.3, 1, 0, 7); ctx.fill(); } }
+    const sk = o.skin || SKIN; ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.translate(0, 34);
+    const ol = (w = 2.8) => { ctx.strokeStyle = OUT; ctx.lineWidth = w; ctx.stroke(); };
+    const f = c => { ctx.fillStyle = c; ctx.fill(); };
+    const circ = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); };
+    const Rr = 28, BH = 24, legH = 7, top = -BH, cy = top - Rr * .78, bw = Rr * .62 + BH * .25;
+    const B = BLADE[o.blade || 'qingming'], vajra = o.acc === 'vajra', st = pose.step || 0, arm = pose.arm || 0;
+    const hx = bw * 1.05 + (o.acc === 'talis' ? 9 : vajra ? 8 : 0), hy = top + BH * .5;
+    // 身後：披風、長髮、馬尾
+    if (o.cape) { ctx.beginPath(); ctx.moveTo(-bw * .6, top + 2); ctx.quadraticCurveTo(-bw * 1.4, -6, -bw * 1.2, 0); ctx.lineTo(bw * 1.2, 0); ctx.quadraticCurveTo(bw * 1.4, -6, bw * .6, top + 2); ctx.closePath(); f(o.cape); ol(); }
+    { const HS = o.hs || 'ponytail', hat = o.head === 'douli'; // 身後的馬尾／辮尾
+      if (HS === 'ponytail') { ctx.beginPath(); ctx.moveTo(-Rr * .2, cy - Rr * .95); ctx.quadraticCurveTo(-Rr * 1.0, cy - Rr * 1.45, -Rr * 1.55, cy - Rr * .55); ctx.quadraticCurveTo(-Rr * 1.5, cy + Rr * .1, -Rr * 1.25, cy + Rr * .55); ctx.quadraticCurveTo(-Rr * 1.15, cy - Rr * .1, -Rr * 1.0, cy - Rr * .35); ctx.quadraticCurveTo(-Rr * .75, cy - Rr * .7, -Rr * .4, cy - Rr * .55); ctx.closePath(); f(o.hair); ol(); }
+      if (HS === 'lowtail') { ctx.beginPath(); ctx.moveTo(-Rr * .6, cy + Rr * .5); ctx.quadraticCurveTo(-Rr * 1.3, cy + Rr * .9, -Rr * 1.15, cy + Rr * 1.7); ctx.quadraticCurveTo(-Rr * .95, cy + Rr * 1.1, -Rr * .3, cy + Rr * .7); ctx.closePath(); f(o.hair); ol(); circ(-Rr * .62, cy + Rr * .62, Rr * .12); f(o.trim); ol(2); }
+      if (HS === 'twin') for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * Rr * .6, cy - Rr * .9); ctx.quadraticCurveTo(s * Rr * 1.7, cy - Rr * .7, s * Rr * 1.45, cy + Rr * .7); ctx.quadraticCurveTo(s * Rr * 1.35, cy + Rr * 1.3, s * Rr * 1.6, cy + Rr * 1.75); ctx.quadraticCurveTo(s * Rr * 1.0, cy + Rr * 1.3, s * Rr * 1.15, cy + Rr * .4); ctx.quadraticCurveTo(s * Rr * 1.2, cy - Rr * .3, s * Rr * .8, cy - Rr * .5); ctx.closePath(); f(o.hair); ol(); } }
+    // 腳
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.roundRect(s * Rr * .22 - Rr * .13, -legH - 2 + st * s, Rr * .26, legH + 2, Rr * .12); f('#3b2f48'); ol(); }
+    // 身體（豆子）
+    ctx.beginPath(); ctx.moveTo(-bw * .62, top); ctx.quadraticCurveTo(-bw * 1.05, -legH * .5, -bw * .95, -legH + 1); ctx.quadraticCurveTo(0, -legH + 5, bw * .95, -legH + 1); ctx.quadraticCurveTo(bw * 1.05, -legH * .5, bw * .62, top); ctx.closePath(); f(o.robe); ol();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = o.trim; ctx.fillRect(-bw * 1.2, top + BH * .45, bw * 2.4, 3.6); ctx.fillStyle = o.trim2 || o.trim; ctx.fillRect(-bw * 1.2, -legH - 3, bw * 2.4, 4);
+    if (o.pattern === 'cloud') { ctx.strokeStyle = o.trim; ctx.lineWidth = 1.4; for (const [x, y] of [[-9, -14], [6, -12]]) { ctx.beginPath(); ctx.arc(x, y, 2.6, 3.4, 6.6); ctx.arc(x + 3.6, y, 2.1, 3.4, 6.4); ctx.stroke(); } }
+    if (o.pattern === 'flame') { ctx.fillStyle = '#ffb040'; for (let x = -20; x < 20; x += 6) { ctx.beginPath(); ctx.moveTo(x, -legH); ctx.quadraticCurveTo(x + 1, -legH - 6, x + 3, -legH - 9); ctx.quadraticCurveTo(x + 3.5, -legH - 4, x + 6, -legH); ctx.fill(); } }
+    if (o.pattern === 'gold') { ctx.fillStyle = '#e8c050'; ctx.fillRect(-bw * 1.2, top + BH * .45 + 5, bw * 2.4, 1.6); ctx.fillRect(-1, top + BH * .45 + 3, 2, 8); }
+    if (o.pattern === 'sakura') { ctx.fillStyle = '#ffd0dc'; for (const [x, y] of [[-10, -18], [7, -10], [-3, -9], [11, -19], [-14, -10]]) for (let k = 0; k < 5; k++) { const a = k * 1.256; circ(x + Math.cos(a) * 1.4, y + Math.sin(a) * 1.4, 1.1); ctx.fill(); } }
     ctx.restore();
-    ctx.fillStyle = o.trim; P(ctx, [[-7, 2], [0, 11], [7, 2], [4, 2], [0, 7], [-4, 2]]); ctx.fill();
-    if (o.acc === 'vajra') { ctx.fillStyle = '#7a3a1a'; for (let i = 0; i < 9; i++) { const a = Math.PI * (.15 + i * .0875); ctx.beginPath(); ctx.arc(Math.cos(a) * 10, 2 + Math.sin(a) * 8, 1.8, 0, 7); ctx.fill(); } }
-    const arm = pose.arm || 0;
-    for (const sx of [-1, 1]) { ctx.save(); ctx.translate(sx * 13, 8); ctx.rotate(sx * (.25 + (sx > 0 ? arm : 0))); ctx.beginPath(); ctx.ellipse(0, 5, 4.5, 8, 0, 0, 7); fill(o.robe, o.shade, -3, 13); ol(); ctx.beginPath(); ctx.arc(0, 12, 3.6, 0, 7); ctx.fillStyle = sk; ctx.fill(); ol(); ctx.restore(); }
-    if (o.acc === 'talis') { const fc = o.skinCol || '#d03a2a'; ctx.save(); ctx.translate(16, 18); ctx.rotate(.3); ctx.fillStyle = '#f6e7a8'; ctx.fillRect(-3.5, -7, 7, 13); ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; ctx.strokeRect(-3.5, -7, 7, 13); ctx.fillStyle = fc; ctx.fillRect(-1, -5, 2, 9); ctx.fillRect(-2.5, -2, 5, 1.4); ctx.restore(); }
-    if (o.acc === 'vajra') { ctx.save(); ctx.translate(-17, 10); ctx.fillStyle = '#8a5a2a'; ctx.fillRect(-1.6, -26, 3.2, 40); ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; ctx.strokeRect(-1.6, -26, 3.2, 40); ctx.strokeStyle = o.skinCol || '#e8c050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -28, 4, 0, 7); ctx.stroke(); ctx.restore(); }
+    ctx.beginPath(); ctx.moveTo(-bw * .4, top); ctx.lineTo(0, top + BH * .35); ctx.lineTo(bw * .4, top); ctx.strokeStyle = o.trim; ctx.lineWidth = 3; ctx.stroke();
+    if (vajra) { ctx.fillStyle = '#8a4a22'; for (let i = 0; i < 7; i++) { const a = Math.PI * (.15 + i * .117); circ(Math.cos(a) * bw * .55, top + Math.sin(a) * BH * .35, 2.6); ctx.fill(); } }
+    // 左手（右手握武器，最後畫）
+    circ(-bw * 1.05, hy, Rr * .13); f(sk); ol(2.4);
+    const HS = o.hs || 'ponytail', bald = HS === 'bald', hat = o.head === 'douli';
+    const bang = { ponytail: 'swept', lowtail: 'swept', short: 'swept', dragon: 'swept', braid: 'soft', bob: 'soft', twin: 'soft', long: 'part', cloud: 'part' }[HS];
+    const backT = { long: 'long', cloud: 'long', bob: 'bob', braid: 'bob', twin: 'bob' }[HS] || 'short';
+    const H2 = shade(o.hair, -.18);
+    if (!bald) { // 後髮
+      ctx.beginPath();
+      if (backT === 'long') { ctx.moveTo(-Rr * 1.05, cy - Rr * .1); ctx.quadraticCurveTo(-Rr * 1.12, cy + Rr * .9, -Rr * .9, cy + Rr * 1.15); ctx.lineTo(Rr * .9, cy + Rr * 1.15); ctx.quadraticCurveTo(Rr * 1.12, cy + Rr * .9, Rr * 1.05, cy - Rr * .1); }
+      else if (backT === 'bob') { ctx.moveTo(-Rr * 1.08, cy - Rr * .1); ctx.quadraticCurveTo(-Rr * 1.2, cy + Rr * .45, -Rr * .85, cy + Rr * .62); ctx.lineTo(Rr * .85, cy + Rr * .62); ctx.quadraticCurveTo(Rr * 1.2, cy + Rr * .45, Rr * 1.08, cy - Rr * .1); }
+      else { ctx.moveTo(-Rr * 1.05, cy); ctx.quadraticCurveTo(-Rr * 1.05, cy + Rr * .45, -Rr * .8, cy + Rr * .5); ctx.lineTo(Rr * .8, cy + Rr * .5); ctx.quadraticCurveTo(Rr * 1.05, cy + Rr * .45, Rr * 1.05, cy); }
+      ctx.closePath(); f(H2); ol(2.6);
+      if (HS === 'short' && !hat) { ctx.beginPath(); ctx.moveTo(-Rr * .75, cy - Rr * .7); for (const [x, y] of [[-.62, -1.32], [-.35, -.95], [-.08, -1.38], [.2, -.98], [.5, -1.3], [.66, -.8]]) ctx.lineTo(Rr * x, cy + Rr * y); ctx.closePath(); f(o.hair); ol(2.6); }
+      if (HS === 'cloud' && !hat) { for (const [x, y, r] of [[-.32, -1.12, .3], [.32, -1.12, .3], [0, -1.32, .34]]) { circ(Rr * x, cy + Rr * y, Rr * r); f(o.hair); ol(2.6); } }
+      if (o.hfx === 'flame' && !hat) { ctx.fillStyle = '#ff9a3a'; for (let i = -3; i <= 3; i++) { const a = -Math.PI / 2 + i * .32, bx = Math.cos(a) * Rr * 1.0, by2 = cy - Rr * .05 + Math.sin(a) * Rr * 1.0;
+        ctx.beginPath(); ctx.moveTo(bx - 5, by2 + 3); ctx.quadraticCurveTo(bx + Math.cos(a) * 10, by2 + Math.sin(a) * 12, bx + Math.cos(a) * 12 + 3, by2 + Math.sin(a) * 15); ctx.quadraticCurveTo(bx + 2, by2, bx + 5, by2 + 3); ctx.closePath(); ctx.fill(); ol(2); } }
+    }
     // 頭
-    ctx.beginPath(); ctx.ellipse(0, -14, 20, 19, 0, 0, 7); ctx.fillStyle = sk; ctx.fill(); ol();
-    ctx.save(); ctx.beginPath(); ctx.ellipse(0, -14, 20, 19, 0, 0, 7); ctx.clip(); ctx.fillStyle = o.skin ? '#e8b888' : SKIN2; ctx.globalAlpha = .5; ctx.beginPath(); ctx.ellipse(6, 0, 16, 10, 0, 0, 7); ctx.fill(); ctx.restore();
-    const ey = -11;
-    for (const sx of [-1, 1]) { const x = sx * 8;
-      if (pose.blink) { ctx.strokeStyle = '#2a1a2a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 3.5, ey + 1); ctx.quadraticCurveTo(x, ey + 3, x + 3.5, ey + 1); ctx.stroke(); continue; }
-      ctx.fillStyle = '#24182a'; ctx.beginPath(); ctx.ellipse(x, ey, 4.2, 5.6, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = o.iris; ctx.beginPath(); ctx.ellipse(x, ey + 1.6, 3, 3.2, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x - 1.4, ey - 2.2, 1.6, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x + 1.6, ey + 2, .8, 0, 7); ctx.fill();
-      if (o.evil) { ctx.strokeStyle = '#24182a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - sx * 4.5, ey - 8); ctx.lineTo(x + sx * 4.5, ey - 5.5); ctx.stroke(); } }
-    ctx.fillStyle = '#ff8fa0'; ctx.globalAlpha = .55; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * 13, -4, 3.2, 1.8, 0, 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#6a2a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); if (o.evil) { ctx.moveTo(-3, -2); ctx.quadraticCurveTo(0, -3.5, 3, -1); } else { ctx.moveTo(-2.5, -3); ctx.quadraticCurveTo(0, -.5, 2.5, -3); } ctx.stroke();
-    if (o.acc === 'vajra') { ctx.fillStyle = '#c48a5a'; for (const [x, y] of [[-5, -27], [0, -28.5], [5, -27], [-5, -23], [0, -24.5], [5, -23]]) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, 7); ctx.fill(); } }
-    else { ctx.beginPath(); ctx.moveTo(-21, -12); ctx.quadraticCurveTo(-23, -36, 0, -36); ctx.quadraticCurveTo(23, -36, 21, -12);
-      ctx.lineTo(17, -18); ctx.lineTo(14, -14); ctx.lineTo(10, -21); ctx.lineTo(5, -17); ctx.lineTo(1, -23); ctx.lineTo(-4, -18); ctx.lineTo(-9, -22); ctx.lineTo(-13, -15); ctx.lineTo(-17, -19); ctx.closePath(); fill(o.hair2, o.hair, -36, -12); ol();
-      ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-4, -28, 9, 3.6, 4.6); ctx.stroke(); }
-    if (o.acc === 'sword' && o.head !== 'douli') { ctx.beginPath(); ctx.ellipse(0, -38, 7, 5.5, 0, 0, 7); fill(o.hair2, o.hair, -44, -32); ol(); ctx.fillStyle = B.guard; ctx.fillRect(-11, -39, 22, 2.2); }
-    if (o.acc === 'pill' && o.head !== 'douli') { for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(sx * 15, -33, 6, 0, 7); fill(o.hair2, o.hair, -39, -27); ol(); } ctx.fillStyle = '#5fd07a'; ctx.beginPath(); ctx.ellipse(15, -38, 4, 2, -.6, 0, 7); ctx.fill(); }
-    if (o.acc === 'talis' && o.head !== 'douli' && o.head !== 'crown') { ctx.beginPath(); ctx.moveTo(-12, -33); ctx.lineTo(12, -33); ctx.lineTo(9, -43); ctx.lineTo(-9, -43); ctx.closePath(); fill('#2a2438', '#16121e', -43, -33); ol(); ctx.fillStyle = '#e8c050'; ctx.fillRect(-2, -41, 4, 5); }
-    if (o.head === 'crown') { ctx.beginPath(); ctx.moveTo(-9, -40); ctx.lineTo(-9, -46); ctx.lineTo(-4.5, -42); ctx.lineTo(0, -49); ctx.lineTo(4.5, -42); ctx.lineTo(9, -46); ctx.lineTo(9, -40); ctx.closePath(); fill('#ffe27a', '#d89c2a', -49, -40); ol(); ctx.fillStyle = '#e0303a'; ctx.beginPath(); ctx.arc(0, -43, 1.6, 0, 7); ctx.fill(); }
-    if (o.head === 'mask') { ctx.save(); ctx.translate(15, -30); ctx.rotate(.4); ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(-7, -11); ctx.lineTo(-2, -6); ctx.lineTo(2, -6); ctx.lineTo(7, -11); ctx.lineTo(6, -4); ctx.quadraticCurveTo(6, 5, 0, 7); ctx.quadraticCurveTo(-6, 5, -6, -4); fill('#ffffff', '#e8e0e8', -11, 7); ol(); ctx.fillStyle = '#e0303a'; ctx.fillRect(-4, -2, 3, 1.2); ctx.fillRect(1, -2, 3, 1.2); ctx.fillRect(-.6, 1, 1.2, 3); ctx.restore(); }
-    if (o.head === 'flower') { for (let k = 0; k < 5; k++) { const a = k * 1.256; ctx.fillStyle = '#ffb0c8'; ctx.beginPath(); ctx.arc(-14 + Math.cos(a) * 3, -31 + Math.sin(a) * 3, 2.6, 0, 7); ctx.fill(); } ctx.fillStyle = '#ffe27a'; ctx.beginPath(); ctx.arc(-14, -31, 1.6, 0, 7); ctx.fill(); }
-    if (o.head === 'douli') { ctx.beginPath(); ctx.moveTo(-30, -30); ctx.quadraticCurveTo(0, -54, 30, -30); ctx.quadraticCurveTo(0, -36, -30, -30); fill('#e8c878', '#b8904a', -48, -30); ol(); ctx.strokeStyle = '#9a7438'; ctx.lineWidth = 1; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 9, -33); ctx.lineTo(i * 3, -44); ctx.stroke(); } }
+    circ(0, cy, Rr); f(sk); ol(3);
+    if (!bald) { // 前髮：超出頭形有份量、層次瀏海、兩側鬢髮
+      const HP = {
+        swept: [[.88, .66], [.7, .02], [.5, .04], [.33, -.34], [.12, -.06], [-.08, -.4], [-.3, -.1], [-.5, -.36], [-.68, .0], [-.88, .66]],
+        soft: [[.9, .48], [.72, -.02], [.54, -.04], [.36, -.3], [.18, -.06], [0, -.3], [-.18, -.06], [-.36, -.3], [-.54, -.04], [-.72, -.02], [-.9, .48]],
+        part: [[.88, .78], [.66, .1], [.42, -.22], [.06, -.6], [-.06, -.6], [-.42, -.22], [-.66, .1], [-.88, .78]],
+      }[bang];
+      ctx.beginPath(); ctx.moveTo(-Rr * 1.04, cy + Rr * .12); ctx.arc(0, cy - Rr * .03, Rr * 1.07, Math.PI * .97, Math.PI * 2.03); ctx.lineTo(Rr * 1.04, cy + Rr * .12);
+      let px = 1.04, py = .12;
+      for (const [qx, qy] of HP) { const mx = (px + qx) / 2, my = (py + qy) / 2;
+        const cx2 = bang === 'soft' && qy > py ? mx : mx + (bang === 'swept' ? .07 : 0), cy2 = bang === 'soft' ? (qy > py ? my + .12 : my) : my - .06;
+        ctx.quadraticCurveTo(Rr * cx2, cy + Rr * cy2, Rr * qx, cy + Rr * qy); px = qx; py = qy; }
+      ctx.quadraticCurveTo(-Rr * 1.0, cy + Rr * .4, -Rr * 1.04, cy + Rr * .12); ctx.closePath(); f(o.hair); ol(2.8);
+      ctx.beginPath(); ctx.arc(0, cy - Rr * .1, Rr * .82, Math.PI * 1.18, Math.PI * 1.42); ctx.strokeStyle = shade(o.hair, .35); ctx.lineWidth = 3.2; ctx.stroke(); // 髮光
+      if (o.hfx === 'star') { ctx.fillStyle = '#fff6c0'; for (const [x, y, r] of [[-.55, -.55, 2.4], [.1, -.75, 2], [.55, -.45, 2.6], [-.2, -.3, 1.6], [.35, -.85, 1.4]]) { const X = Rr * x, Y = cy + Rr * y; ctx.beginPath(); ctx.moveTo(X, Y - r * 1.8); ctx.lineTo(X + r * .5, Y - r * .5); ctx.lineTo(X + r * 1.8, Y); ctx.lineTo(X + r * .5, Y + r * .5); ctx.lineTo(X, Y + r * 1.8); ctx.lineTo(X - r * .5, Y + r * .5); ctx.lineTo(X - r * 1.8, Y); ctx.lineTo(X - r * .5, Y - r * .5); ctx.closePath(); ctx.fill(); } }
+    } else { ctx.beginPath(); ctx.arc(-Rr * .3, cy - Rr * .45, Rr * .3, Math.PI * 1.1, Math.PI * 1.6); ctx.strokeStyle = '#ffffff99'; ctx.lineWidth = 3; ctx.stroke();
+      if (vajra) { ctx.fillStyle = '#c98a6a'; for (const [a, b] of [[-.3, -.62], [0, -.68], [.3, -.62], [-.3, -.45], [0, -.5], [.3, -.45]]) { circ(a * Rr, cy + b * Rr, 1.5); ctx.fill(); } } }
+    // 髮飾與門派標記
+    if (HS === 'ponytail' && !hat) { ctx.save(); ctx.translate(-Rr * .5, cy - Rr * .98); ctx.rotate(-.5); ctx.beginPath(); ctx.roundRect(-Rr * .14, -Rr * .1, Rr * .28, Rr * .2, 3); f(o.trim); ol(2); ctx.beginPath(); ctx.moveTo(-2, Rr * .08); ctx.lineTo(-Rr * .2, Rr * .42); ctx.lineTo(-Rr * .02, Rr * .36); ctx.lineTo(Rr * .06, Rr * .46); ctx.lineTo(4, Rr * .08); ctx.closePath(); f(o.trim); ol(1.8); ctx.restore(); }
+    if (HS === 'braid') { for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(-Rr * .92 - i * .8, cy + Rr * .62 + i * Rr * .24, Rr * .17 - i * .7, Rr * .14, -.3, 0, 7); f(o.hair); ol(2.2); } ctx.beginPath(); ctx.roundRect(-Rr * 1.12, cy + Rr * 1.36, Rr * .2, Rr * .1, 2); f(o.trim); ol(1.6); }
+    if (HS === 'twin' && !hat) for (const s of [-1, 1]) { ctx.beginPath(); ctx.roundRect(s * Rr * .72 - Rr * .13, cy - Rr * .95, Rr * .26, Rr * .18, 3); f(o.trim); ol(2); }
+    if (HS === 'cloud' && !hat) { ctx.save(); ctx.translate(Rr * .25, cy - Rr * 1.25); ctx.rotate(.6); ctx.beginPath(); ctx.roundRect(-1.5, -Rr * .5, 3, Rr * .75, 1.5); f('#e8c050'); ol(1.6); circ(0, -Rr * .52, 3.2); f('#e0303a'); ol(1.6); ctx.restore(); }
+    if (HS === 'dragon' && !hat) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * Rr * .35, cy - Rr * .9); ctx.quadraticCurveTo(s * Rr * .5, cy - Rr * 1.45, s * Rr * .78, cy - Rr * 1.62); ctx.quadraticCurveTo(s * Rr * .62, cy - Rr * 1.3, s * Rr * .7, cy - Rr * 1.15); ctx.quadraticCurveTo(s * Rr * .9, cy - Rr * 1.2, s * Rr * .98, cy - Rr * 1.32); ctx.quadraticCurveTo(s * Rr * .95, cy - Rr * 1.0, s * Rr * .62, cy - Rr * .85); ctx.closePath(); f('#f0d070'); ol(2.4); }
+    if (o.acc === 'pill' && !bald && !hat) { ctx.save(); ctx.translate(Rr * .55, cy - Rr * .78); ctx.rotate(.5); ctx.beginPath(); ctx.ellipse(0, 0, Rr * .22, Rr * .1, 0, 0, 7); f('#6ac46a'); ol(2); ctx.restore(); }
+    if (o.acc === 'talis' && !hat && o.head !== 'crown' && HS !== 'cloud' && HS !== 'dragon') { ctx.beginPath(); ctx.roundRect(-Rr * .28, cy - Rr * 1.28, Rr * .56, Rr * .42, 3); f('#3a2a5a'); ol(2.4); ctx.beginPath(); ctx.moveTo(-Rr * .5, cy - Rr * 1.08); ctx.lineTo(Rr * .5, cy - Rr * 1.08); ctx.strokeStyle = '#e8c050'; ctx.lineWidth = 3; ctx.stroke(); }
+    // 臉
+    const ey = cy + Rr * .18, ex = Rr * .36, ev = o.evil, eyeT = pose.blink ? 'smile' : (o.eye || 'round');
+    const EYE = { round: [.17, .21, 0], cat: [.18, .19, -.18], droop: [.18, .19, .2], phoenix: [.2, .13, -.22] };
+    for (const s of [-1, 1]) { ctx.save(); ctx.translate(s * ex, ey); ctx.scale(s, 1); // 本地座標：+x 朝外側
+      const E = EYE[eyeT];
+      if (E) { const [a, b, t] = E, er = Rr * a, eh = Rr * b; ctx.rotate(t);
+        ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, er, eh, 0, 0, 7); ctx.clip();
+        ctx.fillStyle = '#24182a'; ctx.fillRect(-er, -eh, er * 2, eh * 2);
+        ctx.fillStyle = ev ? '#e0303a' : (o.iris || '#3a7fd0'); ctx.beginPath(); ctx.ellipse(0, eh * .35, er * .75, eh * .62, 0, 0, 7); ctx.fill();
+        if (ev) { ctx.fillStyle = sk; ctx.beginPath(); ctx.moveTo(-er * 1.3, -eh * .05); ctx.lineTo(er * 1.3, -eh * .6); ctx.lineTo(er * 1.3, -eh * 1.3); ctx.lineTo(-er * 1.3, -eh * 1.3); ctx.closePath(); ctx.fill(); }
+        ctx.fillStyle = '#fff'; circ(-er * .35, ev ? eh * .2 : -eh * .35, er * .3); ctx.fill(); circ(er * .35, eh * .5, er * .15); ctx.fill();
+        ctx.restore();
+        if (ev) { ctx.beginPath(); ctx.moveTo(-er * 1.1, -eh * .05); ctx.lineTo(er * 1.15, -eh * .6); ctx.lineTo(er * 1.5, -eh * .95); ol(2.8); }
+        else { ctx.beginPath(); ctx.ellipse(0, 0, er, eh, 0, Math.PI * 1.08, Math.PI * 1.92); ol(eyeT === 'phoenix' ? 3.4 : 2.6);
+          if (eyeT === 'cat' || eyeT === 'phoenix') { ctx.beginPath(); ctx.moveTo(er * .8, -eh * .55); ctx.lineTo(er * 1.4, -eh * (eyeT === 'phoenix' ? 1.2 : .95)); ol(2.4); }
+          if (eyeT === 'droop') { ctx.beginPath(); ctx.moveTo(er * .85, -eh * .4); ctx.lineTo(er * 1.3, -eh * .05); ol(2.2); } }
+      } else {
+        if (eyeT === 'bean') { circ(0, 0, Rr * .09); f(ev ? '#b01a2a' : OUT); }
+        else { ctx.beginPath(); ctx.moveTo(-Rr * .15, Rr * .02); ctx.quadraticCurveTo(0, -Rr * .16, Rr * .15, Rr * .02); ol(2.8); }
+        if (ev) { ctx.beginPath(); ctx.moveTo(Rr * .1, -Rr * .04); ctx.lineTo(Rr * .3, -Rr * .16); ctx.lineTo(Rr * .14, Rr * .04); ctx.closePath(); f('#d03040'); }
+      }
+      ctx.restore(); }
+    ctx.globalAlpha = .7; ctx.fillStyle = '#ff9aa8'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * Rr * .6, cy + Rr * .38, Rr * .13, Rr * .07, 0, 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
+    ctx.beginPath(); if (o.evil) { ctx.moveTo(-Rr * .16, cy + Rr * .47); ctx.quadraticCurveTo(0, cy + Rr * .56, Rr * .18, cy + Rr * .38); ol(2.2); ctx.beginPath(); ctx.moveTo(Rr * .05, cy + Rr * .52); ctx.lineTo(Rr * .08, cy + Rr * .62); ctx.lineTo(Rr * .12, cy + Rr * .49); ctx.closePath(); f('#fff'); ol(1.4); ctx.beginPath(); } else { ctx.moveTo(-Rr * .09, cy + Rr * .45); ctx.quadraticCurveTo(0, cy + Rr * .54, Rr * .09, cy + Rr * .45); } ol(2.2);
+    // 頭飾（商店）
+    if (o.head === 'crown') { ctx.beginPath(); ctx.moveTo(-11, cy - 24); ctx.lineTo(-11, cy - 32); ctx.lineTo(-5.5, cy - 27); ctx.lineTo(0, cy - 36); ctx.lineTo(5.5, cy - 27); ctx.lineTo(11, cy - 32); ctx.lineTo(11, cy - 24); ctx.closePath(); f('#ffd84a'); ol(2.4); ctx.fillStyle = '#e0303a'; circ(0, cy - 29, 2); ctx.fill(); }
+    if (o.head === 'mask') { ctx.save(); ctx.translate(-Rr * .7, cy - Rr * .62); ctx.rotate(-.4); ctx.beginPath(); ctx.moveTo(-7, -4); ctx.lineTo(-8, -12); ctx.lineTo(-2, -7); ctx.lineTo(2, -7); ctx.lineTo(8, -12); ctx.lineTo(7, -4); ctx.quadraticCurveTo(7, 6, 0, 8); ctx.quadraticCurveTo(-7, 6, -7, -4); f('#ffffff'); ol(2.2); ctx.fillStyle = '#e0303a'; ctx.fillRect(-4.5, -2, 3.4, 1.4); ctx.fillRect(1.1, -2, 3.4, 1.4); ctx.restore(); }
+    if (o.head === 'flower') { for (let k = 0; k < 5; k++) { const a = k * 1.256; ctx.fillStyle = '#ffb0c8'; circ(-Rr * .62 + Math.cos(a) * 3.6, cy - Rr * .7 + Math.sin(a) * 3.6, 3.2); ctx.fill(); } ctx.fillStyle = '#ffe27a'; circ(-Rr * .62, cy - Rr * .7, 2); ctx.fill(); }
+    if (o.head === 'douli') { ctx.beginPath(); ctx.moveTo(-Rr * 1.35, cy - Rr * .45); ctx.quadraticCurveTo(0, cy - Rr * 1.75, Rr * 1.35, cy - Rr * .45); ctx.quadraticCurveTo(0, cy - Rr * .7, -Rr * 1.35, cy - Rr * .45); f('#e8c878'); ol(2.6); ctx.strokeStyle = '#b8904a'; ctx.lineWidth = 1.4; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 10, cy - Rr * .62); ctx.lineTo(i * 3.5, cy - Rr * 1.05); ctx.stroke(); } }
+    // 大武器（右手握著，在最前面）
+    const k = .82, wc = o.skinCol;
+    if (!pose.noWpn) {
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(arm * .6);
+    if (o.acc === 'sword') { ctx.rotate(.55);
+      ctx.beginPath(); ctx.moveTo(-5 * k, -12 * k); ctx.lineTo(-5 * k, -62 * k); ctx.lineTo(0, -72 * k); ctx.lineTo(5 * k, -62 * k); ctx.lineTo(5 * k, -12 * k); ctx.closePath(); f(B.blade); ol(2.8);
+      ctx.beginPath(); ctx.moveTo(0, -14 * k); ctx.lineTo(0, -64 * k); ctx.strokeStyle = B.edge; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(-13 * k, -14 * k, 26 * k, 6 * k, 3); f(B.guard); ol(2.6);
+      ctx.beginPath(); ctx.roundRect(-4 * k, -8 * k, 8 * k, 16 * k, 3); f(B.hilt); ol(2.6); circ(0, 11 * k, 4 * k); f(B.guard); ol(2.2); }
+    if (o.acc === 'pill') { const pc = wc || '#e8a83a'; ctx.translate(4, -6); ctx.rotate(.15);
+      ctx.beginPath(); ctx.moveTo(0, -8 * k); ctx.quadraticCurveTo(10 * k, -30 * k, 0, -34 * k); ctx.strokeStyle = '#c0402a'; ctx.lineWidth = 3; ctx.stroke();
+      circ(0, 6 * k, 15 * k); f(pc); ol(2.8); circ(0, -14 * k, 10 * k); f(pc); ol(2.8); ctx.beginPath(); ctx.roundRect(-9 * k, -6 * k, 18 * k, 5 * k, 2); f('#c0402a'); ol(2.2);
+      ctx.beginPath(); ctx.roundRect(-3 * k, -28 * k, 6 * k, 6 * k, 2); f('#7a4a2a'); ol(2.2); }
+    if (o.acc === 'talis') { const fc = wc || '#d8342a'; ctx.translate(0, -14 * k); ctx.rotate(.18);
+      ctx.beginPath(); ctx.rect(-11 * k, -26 * k, 22 * k, 42 * k); f('#ffe98a'); ol(2.8);
+      ctx.fillStyle = fc; ctx.fillRect(-2 * k, -21 * k, 4 * k, 30 * k); ctx.fillRect(-8 * k, -12 * k, 16 * k, 3 * k); ctx.fillRect(-7 * k, 0, 14 * k, 3 * k); circ(0, -18 * k, 4 * k); ctx.fill(); }
+    if (vajra) { const rc = wc || '#e8c050';
+      ctx.beginPath(); ctx.roundRect(-3.5 * k, -66 * k, 7 * k, 82 * k, 3); f('#9a6a32'); ol(2.6);
+      circ(0, -70 * k, 12 * k); ctx.strokeStyle = OUT; ctx.lineWidth = 7; ctx.stroke(); ctx.strokeStyle = rc; ctx.lineWidth = 4; ctx.stroke();
+      for (const s of [-1, 1]) { circ(s * 12 * k, -62 * k, 4.5 * k); f(rc); ol(2); } }
+    ctx.restore();
+    }
+    circ(hx, hy, Rr * .13); f(sk); ol(2.4);
     ctx.restore();
   }
   // ---------------- 妖獸（中心在 0,0，大約 -30～30） ----------------
@@ -134,7 +211,7 @@
       ctx.strokeStyle = OUT; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-14, 4); ctx.quadraticCurveTo(0, 10, 14, 4); ctx.stroke();
       ctx.fillStyle = shade(c, .4); ctx.beginPath(); ctx.ellipse(0, 12, 14, 5, 0, 0, 7); ctx.fill(); },
     wisp(ctx, c, c2) { ctx.beginPath(); ctx.moveTo(0, -26); ctx.quadraticCurveTo(6, -14, 12, -8); ctx.quadraticCurveTo(18, 6, 8, 12); ctx.quadraticCurveTo(0, 16, -8, 12); ctx.quadraticCurveTo(-18, 6, -12, -8); ctx.quadraticCurveTo(-4, -16, 0, -26);
-      const g = ctx.createRadialGradient(0, 2, 2, 0, 0, 20); g.addColorStop(0, '#ffffff'); g.addColorStop(.5, c); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fill(); ol(ctx);
+      ctx.fillStyle = c; ctx.fill(); ol(ctx);
       ctx.fillStyle = '#1a2a2a'; for (const x of [-5, 5]) { ctx.beginPath(); ctx.ellipse(x, 0, 2.4, 3.4, 0, 0, 7); ctx.fill(); } ctx.fillStyle = '#fff'; for (const x of [-5.8, 4.2]) { ctx.beginPath(); ctx.arc(x, -1.2, 1, 0, 7); ctx.fill(); }
       ctx.strokeStyle = '#1a2a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 5, 2.5, .2, Math.PI - .2); ctx.stroke(); },
     imp(ctx, c, c2) { const f = mkFill(ctx);
@@ -169,7 +246,7 @@
     if (CACHE.size > 260) CACHE.delete(CACHE.keys().next().value);
     CACHE.set(k, s); return s;
   }
-  const CHIBI_BOX = [80, 100, 40, 56];
+  const CHIBI_BOX = [132, 124, 66, 72];
   function heroSprite(o, scale, pose) { return cached('h' + JSON.stringify(o) + (pose ? JSON.stringify(pose) : ''), CHIBI_BOX, scale, x => chibi(x, o, pose || {})); }
   const MON_BOX = [72, 64, 36, 32];
   function monSprite(art, col, scale) { return cached('m' + art + col, MON_BOX, scale, x => { x.fillStyle = '#00000038'; x.beginPath(); x.ellipse(0, 22, 22, 6, 0, 0, 7); x.fill(); (MART[art] || MART.wisp)(x, col, shade(col, -.38)); }); }

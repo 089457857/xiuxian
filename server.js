@@ -93,7 +93,7 @@ app.get('/api/me', auth, (req, res) => res.json({ name: S.users[req.uid].name, p
 app.post('/api/create', auth, (req, res) => {
   const old = S.prof[req.uid]; if (old && !old.dead) return res.status(400).json({ error: '你已經有角色了' });
   const sect = String(req.body.sect || ''); if (!D.SECTS[sect]) return res.status(400).json({ error: '請選擇門派' });
-  const p = D.newProfile(S.users[req.uid].name, sect, !!req.body.hardcore);
+  const p = D.newProfile(S.users[req.uid].name, sect, !!req.body.hardcore, req.body.look);
   if (old && old.dead) { (S.tombs = S.tombs || []).push({ name: old.name, sect: old.sect, stage: old.stage, hardcore: old.hardcore, at: old.dead }); S.tombs = S.tombs.slice(-100); }
   S.prof[req.uid] = p; save(); res.json({ p });
 });

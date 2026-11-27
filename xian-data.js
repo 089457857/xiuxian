@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.XD = factory();
 })(this, function () {
-  const VERSION = '0.2.0';
+  const VERSION = '0.3.0';
   const TITLE = '萬妖仙途';
 
   // ---------------- 境界：5 個大境界 × 初／中／後 = 15 階 ----------------
@@ -192,6 +192,17 @@
   // ================= 造型（只改外觀，不影響數值） =================
   // type：outfit 時裝、head 頭飾、weapon 武器造型（限定門派）、trail 技能拖尾、aura 光環、title 稱號
   // r：稀有度 1 普通 2 稀有 3 史詩 4 傳說；price：{ stone } 靈石或 { jade } 仙玉；gacha：只能祈願取得
+  // ================= 外貌（建角免費選；之後用洞府「易容鏡」改） =================
+  const LOOK = {
+    hair: { ponytail: '高馬尾', lowtail: '低馬尾', braid: '側辮', long: '中分長髮', short: '短碎髮', bob: '齊肩短髮', bald: '光頭' },
+    eye: { round: '圓圓大眼', cat: '上揚貓眼', droop: '下垂溫柔眼', phoenix: '細長鳳眼', bean: '豆豆眼', smile: '瞇瞇眼' },
+    iris: { blue: ['靛藍', '#3a7fd0'], green: ['翠綠', '#3c9a52'], purple: ['紫羅蘭', '#8a5ae0'], gold: ['琥珀金', '#d89a20'], brown: ['栗棕', '#7a4a2a'], black: ['墨黑', '#2a2230'] },
+    sectHair: { sword: 'ponytail', pill: 'braid', talis: 'long', vajra: 'bald' },
+    sectIris: { sword: 'blue', pill: 'green', talis: 'purple', vajra: 'brown' },
+    hairCol: '#45405e', mirror: 300,
+  };
+  function cleanLook(l, sect) { l = l || {};
+    return { hair: LOOK.hair[l.hair] ? l.hair : LOOK.sectHair[sect] || 'ponytail', eye: LOOK.eye[l.eye] ? l.eye : 'round', iris: LOOK.iris[l.iris] ? l.iris : LOOK.sectIris[sect] || 'blue' }; }
   const RARITY = { 1: { n: '普通', col: '#c8c8c8' }, 2: { n: '稀有', col: '#4aa0ff' }, 3: { n: '史詩', col: '#b07aff' }, 4: { n: '傳說', col: '#ffb020' } };
   const COS = {
     o_qingshan: { type: 'outfit', n: '青衫書生', r: 1, price: { stone: 300 }, look: { robe: '#d8ecd8', shade: '#a8c8a8', trim: '#4a8a5a', trim2: '#2a5a3a' } },
@@ -225,13 +236,24 @@
     ti_jianchi: { type: 'title', n: '劍癡', r: 1, price: { stone: 500 } },
     ti_tufu: { type: 'title', n: '萬妖屠夫', r: 2, price: { stone: 2000 } },
     ti_xianyuan: { type: 'title', n: '仙緣深厚', r: 3, gacha: 1 },
+    c_brown: { type: 'hcol', n: '栗棕髮', r: 1, price: { stone: 150 }, look: { hair: '#6a4028' } },
+    c_red: { type: 'hcol', n: '赤紅髮', r: 1, price: { stone: 200 }, look: { hair: '#b8323a' } },
+    c_blue: { type: 'hcol', n: '靛藍髮', r: 1, price: { stone: 200 }, look: { hair: '#2e4a9a' } },
+    c_silver: { type: 'hcol', n: '銀白髮', r: 1, price: { stone: 300 }, look: { hair: '#dcdcec' } },
+    c_pink: { type: 'hcol', n: '桃粉髮', r: 1, price: { stone: 300 }, look: { hair: '#f2a0bc' } },
+    c_gold: { type: 'hcol', n: '鎏金髮', r: 2, price: { stone: 800 }, look: { hair: '#e8b840' } },
+    c_star: { type: 'hcol', n: '星空髮', r: 3, price: { jade: 280 }, look: { hair: '#2a2a6a', hfx: 'star' } },
+    c_flame: { type: 'hcol', n: '業火髮', r: 3, gacha: 1, look: { hair: '#d8302a', hfx: 'flame' } },
+    hr_twin: { type: 'hair', n: '超長雙馬尾', r: 3, price: { jade: 380 }, look: { hs: 'twin' } },
+    hr_cloud: { type: 'hair', n: '祥雲高髻', r: 3, price: { jade: 380 }, look: { hs: 'cloud' } },
+    hr_dragon: { type: 'hair', n: '龍角髮', r: 4, gacha: 1, look: { hs: 'dragon' } },
   };
-  const COS_TYPES = { outfit: '時裝', weapon: '武器', trail: '拖尾', aura: '光環', head: '頭飾', title: '稱號' };
+  const COS_TYPES = { outfit: '時裝', hair: '髮型', hcol: '髮色', head: '頭飾', weapon: '武器', trail: '拖尾', aura: '光環', title: '稱號' };
   // 限定祈願：機率公開；80 抽必出傳說，每 10 抽至少一件史詩以上
   const GACHA = { n: '魔尊降世', d: '限時祈願・傳說時裝「黑金魔尊」機率提升', cost1: 16, cost10: 160, pity: 80, pity10: 10,
     rates: [[4, 0.016], [3, 0.13], [2, 0.354], [0, 0.5]], // 0 = 仙緣碎片 ×5
     up: 'o_mozun', upShare: 0.5,
-    pool: { 4: ['o_mozun', 'o_sakura', 'a_moon', 'a_lotus'], 3: ['o_yueying', 't_sakura', 'a_flame', 'ti_xianyuan'], 2: ['h_mask', 't_thunder', 'o_xuanyi', 'h_douli'] },
+    pool: { 4: ['o_mozun', 'o_sakura', 'a_moon', 'a_lotus', 'hr_dragon'], 3: ['o_yueying', 't_sakura', 'a_flame', 'ti_xianyuan', 'c_flame'], 2: ['h_mask', 't_thunder', 'o_xuanyi', 'h_douli'] },
     dupShards: { 4: 60, 3: 20, 2: 6, 1: 2 }, shardPrice: { 4: 360, 3: 120, 2: 40 }, freeShards: 5 };
   const JADE = { start: 320, stage: 20, realm: 100, daily: 20 };
   // ================= 儲值（上架前是測試模式：不扣錢直接給；上架後改由 App 內購驗證後呼叫 payGrant） =================
@@ -262,6 +284,7 @@
   }
   function ensure(p) { // 舊存檔補上造型欄位
     if (!p) return p;
+    if (!p.look) { p.look = cleanLook(null, p.sect); p.mirrorFree = 1; } // 舊角色：沿用門派原本的樣子，第一次易容免費
     if (p.jade == null) p.jade = JADE.start; if (!p.own) p.own = []; if (!p.wear) p.wear = {};
     if (p.shards == null) p.shards = 0; if (p.pity == null) p.pity = 0; if (p.pity10 == null) p.pity10 = 0; if (!p.glog) p.glog = []; if (!p.daily) p.daily = ''; if (!p.orders) p.orders = []; if (!p.firstPay) p.firstPay = []; if (p.card === undefined) p.card = null;
     return p;
@@ -302,8 +325,8 @@
   const MAX_KPS = 14;
 
   // ---------------- 角色 ----------------
-  function newProfile(name, sect, hardcore) {
-    return { v: 1, name, sect, hardcore: hardcore ? 1 : 0, dead: 0, stage: 0, cult: 0, dao: 0, path: '', stone: 0,
+  function newProfile(name, sect, hardcore, look) {
+    return { v: 1, name, sect, look: cleanLook(look, sect), mirrorFree: 0, hardcore: hardcore ? 1 : 0, dead: 0, stage: 0, cult: 0, dao: 0, path: '', stone: 0,
       cave: {}, items: [], equip: [], puppet: 0, injury: 0, soulInjury: 0, soulCd: 0,
       runs: 0, kills: 0, best: 0, cd: 0, karma: 0, rebuildTo: -1, expelled: 0,
       formerSect: '', returnLeft: 1, hunt: null, pending: null, log: [], created: Date.now(),
@@ -428,6 +451,12 @@
     if (p.dead) return no('此角色已身死道消');
     ensure(p);
     switch (a.type) {
+      case 'mirror': { // 洞府易容鏡
+        const nl = cleanLook(a.look, p.sect), free = p.mirrorFree;
+        if (!free && p.stone < LOOK.mirror) return no('靈石不足');
+        if (!free) p.stone -= LOOK.mirror; p.mirrorFree = 0; p.look = nl;
+        return { ok: true, msg: free ? '易容完成（本次免費）' : `易容完成，花費 ${LOOK.mirror} 靈石` };
+      }
       case 'buy': {
         const c = COS[a.k]; if (!c || c.gacha || !c.price) return no('這件造型不能直接購買'); if (p.own.includes(a.k)) return no('已經擁有了');
         if (c.sect && c.sect !== p.sect) return no(`這是${SECTS[c.sect].n}專用的武器造型`);
@@ -530,7 +559,7 @@
     return m;
   }
 
-  return { PAY, payGrant, today, RARITY, COS, COS_TYPES, GACHA, JADE, ensure, VERSION, TITLE, REALMS, STAGES, STAGEN, NEED, stageName, realmOf, PATH_STAGE, FORBID_STAGE, SOUL_STAGE, MAPS, MON, MAPMUL, HUNTER_TIERS, HUNTER_MUL,
+  return { LOOK, cleanLook, PAY, payGrant, today, RARITY, COS, COS_TYPES, GACHA, JADE, ensure, VERSION, TITLE, REALMS, STAGES, STAGEN, NEED, stageName, realmOf, PATH_STAGE, FORBID_STAGE, SOUL_STAGE, MAPS, MON, MAPMUL, HUNTER_TIERS, HUNTER_MUL,
     SECTS, PATHN, PATHLINE, SK, SECT_SK, SIDE, SIDE_DAO, PASSIVE, MAX_ACT, MAX_PAS, MAX_SIDE, MAXLV, EVENTS, ITEMS, ITEM_SLOTS, CAVE, caveCost, PUPPET_COST,
     RUN, RULE, baseAtk, baseHp, MAX_KPS, newProfile, mainSkill, lineName, sumFx, runStats, heartDemonRate, canTribulate, act, modes, clampDao };
 });
