@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: xiuxian
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: KV_KEY
+        value: xiuxian

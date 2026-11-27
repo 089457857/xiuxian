@@ -1,0 +1,16 @@
+{
+  "name": "xiuxian-app",
+  "private": true,
+  "version": "0.2.0",
+  "description": "萬妖仙途 App 版（Capacitor）",
+  "scripts": {
+    "build": "node build-app.js && npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.3",
+    "@capacitor/core": "8.6.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.3"
+  }
+}

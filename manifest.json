@@ -1,0 +1,2 @@
+{ "name": "萬妖仙途", "short_name": "萬妖仙途", "start_url": "/", "display": "fullscreen", "orientation": "portrait",
+  "background_color": "#14101c", "theme_color": "#14101c", "icons": [{ "src": "/icon.png", "sizes": "512x512", "type": "image/png" }] }
