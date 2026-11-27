@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>樣品</title>
+<style>body{margin:0;background:#111}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// ================= Q 版角色（同一份設計，畫成向量版或像素版） =================
+const SECT={
+  sword:{n:'青雲劍宗',robe:'#eef4fb',shade:'#bccde4',trim:'#3a7fd0',trim2:'#2a5c9a',hair:'#2a2638',hair2:'#433d5c',iris:'#3a7fd0',acc:'sword'},
+  sword_x:{n:'血魔劍',robe:'#3a2430',shade:'#24161e',trim:'#d0303a',trim2:'#8a1a22',hair:'#e8e4f0',hair2:'#b8b0cc',iris:'#e0303a',acc:'sword',evil:1},
+  pill:{n:'百草丹谷',robe:'#eef6e4',shade:'#c4dcae',trim:'#3c9a52',trim2:'#2a6c3a',hair:'#5a3424',hair2:'#7c4a34',iris:'#3c9a52',acc:'pill'},
+  talis:{n:'紫霄符府',robe:'#f1eafb',shade:'#cdbbe8',trim:'#7a4fd0',trim2:'#56349a',hair:'#1e1a2c',hair2:'#38304e',iris:'#8a5ae0',acc:'talis'},
+  vajra:{n:'金剛寺',robe:'#f5b84c',shade:'#d48a2c',trim:'#b5432a',trim2:'#7e2a1a',hair:'#f2c9a0',hair2:'#e0b088',iris:'#5a3a20',acc:'vajra',skin:'#f6cfa4'},
+};
+const OUT='#2b1d2a',SKIN='#ffdcc0',SKIN2='#f2bea0';
+function P(ctx,pts){ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath()}
+// vec=true：加描邊與漸層；false：純色（給像素化用）
+function chibi(ctx,o,vec,pose={}){
+  const sk=o.skin||SKIN;ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
+  const ol=()=>{if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=2.2;ctx.stroke()}};
+  const fill=(c,c2,y0,y1)=>{if(vec&&c2){const g=ctx.createLinearGradient(0,y0,0,y1);g.addColorStop(0,c);g.addColorStop(1,c2);ctx.fillStyle=g}else ctx.fillStyle=c;ctx.fill()};
+  // 背後配件
+  if(o.acc==='sword'){ctx.save();ctx.translate(9,-4);ctx.rotate(-.55);
+    ctx.fillStyle=o.hilt||(o.evil?'#5a1a24':'#6a4a2a');ctx.fillRect(-2.5,-30,5,10);if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=1.6;ctx.strokeRect(-2.5,-30,5,10)}
+    ctx.fillStyle='#e8c050';ctx.fillRect(-6,-21,12,3.5);if(vec)ctx.strokeRect(-6,-21,12,3.5);ctx.restore()}
+  if(o.acc==='pill'){ctx.save();ctx.translate(-12,8);ctx.beginPath();ctx.arc(0,4,6,0,7);ctx.arc(0,-4,4,0,7);fill('#e8a040','#c47020',-8,10);ol();ctx.fillStyle='#c0402a';ctx.fillRect(-4,-1,8,2);ctx.restore()}
+  // 披風
+  if(o.cape){ctx.beginPath();ctx.moveTo(-10,0);ctx.quadraticCurveTo(-24,18,-20,33);ctx.quadraticCurveTo(0,37,20,33);ctx.quadraticCurveTo(24,18,10,0);fill(o.cape,o.cape2||o.cape,0,34);ol()}
+  if(o.hairStyle==='long'){ctx.beginPath();ctx.moveTo(-20,-14);ctx.quadraticCurveTo(-24,14,-15,24);ctx.lineTo(15,24);ctx.quadraticCurveTo(24,14,20,-14);ctx.closePath();fill(o.hair2,o.hair,-14,24);ol()}
+  // 後髮
+  if(o.acc!=='vajra'){ctx.beginPath();ctx.ellipse(0,-15,23,22,0,0,7);if(o.acc==='sword'){ctx.moveTo(-6,0);ctx.quadraticCurveTo(-4,18,4,16);ctx.quadraticCurveTo(10,10,8,0)}fill(o.hair,o.hair2,-37,10);ol()}
+  // 腿
+  for(const sx of [-1,1]){ctx.beginPath();ctx.roundRect(sx*5-3.5,24+(pose.step?sx*pose.step:0),7,10,3);fill('#3a3046','#2a2234',24,34);ol()}
+  // 身體（道袍）
+  ctx.beginPath();ctx.moveTo(-11,2);ctx.lineTo(11,2);ctx.quadraticCurveTo(15,16,16,27);ctx.quadraticCurveTo(0,31,-16,27);ctx.quadraticCurveTo(-15,16,-11,2);fill(o.robe,o.shade,2,30);ol();
+  ctx.save();ctx.clip();ctx.fillStyle=o.shade;ctx.globalAlpha=vec?.55:1;ctx.beginPath();ctx.moveTo(4,2);ctx.lineTo(18,2);ctx.lineTo(18,32);ctx.lineTo(7,32);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle=o.trim;ctx.fillRect(-20,24,40,8);ctx.fillStyle=o.trim2;ctx.fillRect(-20,13,40,3.5);
+  if(o.pattern==='cloud'){ctx.strokeStyle=o.trim;ctx.lineWidth=1.3;for(const [x,y] of [[-7,20],[6,19]]){ctx.beginPath();ctx.arc(x,y,2.4,3.4,6.6);ctx.arc(x+3.4,y,2,3.4,6.4);ctx.stroke()}}
+  if(o.pattern==='flame'){ctx.fillStyle='#ffb040';for(let x=-16;x<16;x+=5){ctx.beginPath();ctx.moveTo(x,24);ctx.quadraticCurveTo(x+1,19,x+2.5,16);ctx.quadraticCurveTo(x+3,20,x+5,24);ctx.fill()}}
+  if(o.pattern==='gold'){ctx.fillStyle='#e8c050';ctx.fillRect(-20,23,40,1.6);ctx.fillRect(-20,30,40,1.2);ctx.fillRect(-1,16,2,8)}
+  if(o.pattern==='sakura'){ctx.fillStyle='#ffd0dc';for(const [x,y] of [[-8,8],[6,20],[-3,21],[9,7],[-12,19]]){for(let k=0;k<5;k++){const a=k*1.256;ctx.beginPath();ctx.arc(x+Math.cos(a)*1.3,y+Math.sin(a)*1.3,1,0,7);ctx.fill()}}}
+  ctx.restore();
+  // 衣領
+  ctx.fillStyle=o.trim;P(ctx,[[-7,2],[0,11],[7,2],[4,2],[0,7],[-4,2]]);ctx.fill();
+  if(o.acc==='vajra'){ctx.fillStyle='#7a3a1a';for(let i=0;i<9;i++){const a=Math.PI*(.15+i*.0875);ctx.beginPath();ctx.arc(Math.cos(a)*10,2+Math.sin(a)*8,1.8,0,7);ctx.fill()}}
+  // 手
+  const arm=pose.arm||0;
+  for(const sx of [-1,1]){ctx.save();ctx.translate(sx*13,8);ctx.rotate(sx*(.25+(sx>0?arm:0)));ctx.beginPath();ctx.ellipse(0,5,4.5,8,0,0,7);fill(o.robe,o.shade,-3,13);ol();ctx.beginPath();ctx.arc(0,12,3.6,0,7);ctx.fillStyle=sk;ctx.fill();ol();ctx.restore()}
+  // 手上的東西
+  if(o.acc==='talis'){ctx.save();ctx.translate(16,18);ctx.rotate(.3);ctx.fillStyle='#f6e7a8';ctx.fillRect(-3.5,-7,7,13);if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=1.4;ctx.strokeRect(-3.5,-7,7,13)}ctx.fillStyle='#d03a2a';ctx.fillRect(-1,-5,2,9);ctx.fillRect(-2.5,-2,5,1.4);ctx.restore()}
+  if(o.acc==='vajra'){ctx.save();ctx.translate(-17,10);ctx.fillStyle='#8a5a2a';ctx.fillRect(-1.6,-26,3.2,40);if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=1.4;ctx.strokeRect(-1.6,-26,3.2,40)}
+    ctx.strokeStyle='#e8c050';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-28,4,0,7);ctx.stroke();ctx.restore()}
+  // 頭
+  ctx.beginPath();ctx.ellipse(0,-14,20,19,0,0,7);ctx.fillStyle=sk;ctx.fill();ol();
+  ctx.beginPath();ctx.ellipse(0,-14,20,19,0,0,7);ctx.save();ctx.clip();ctx.fillStyle=o.skin?'#e8b888':SKIN2;ctx.globalAlpha=vec?.5:1;ctx.beginPath();ctx.ellipse(6,0,16,10,0,0,7);ctx.fill();ctx.restore();ctx.globalAlpha=1;
+  // 眼睛
+  const ey=-11,blink=pose.blink;
+  for(const sx of [-1,1]){const x=sx*8;
+    if(blink){ctx.strokeStyle='#2a1a2a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-3.5,ey+1);ctx.quadraticCurveTo(x,ey+3,x+3.5,ey+1);ctx.stroke();continue}
+    ctx.fillStyle='#24182a';ctx.beginPath();ctx.ellipse(x,ey,4.2,5.6,0,0,7);ctx.fill();
+    ctx.fillStyle=o.iris;ctx.beginPath();ctx.ellipse(x,ey+1.6,3,3.2,0,0,7);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-1.4,ey-2.2,1.6,0,7);ctx.fill();ctx.beginPath();ctx.arc(x+1.6,ey+2,.8,0,7);ctx.fill();
+    if(o.evil){ctx.strokeStyle='#24182a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-4.5*sx*-1-sx*0,ey-8+ (sx>0?1:-1)*0);ctx.lineTo(x+sx*4.5,ey-5.5);ctx.stroke()}}
+  // 腮紅、嘴
+  ctx.fillStyle='#ff8fa0';ctx.globalAlpha=vec?.55:1;for(const sx of [-1,1]){ctx.beginPath();ctx.ellipse(sx*13,-4,3.2,1.8,0,0,7);ctx.fill()}ctx.globalAlpha=1;
+  ctx.strokeStyle='#6a2a2a';ctx.lineWidth=1.5;ctx.beginPath();if(o.evil){ctx.moveTo(-3,-2);ctx.quadraticCurveTo(0,-3.5,3,-1)}else{ctx.moveTo(-2.5,-3);ctx.quadraticCurveTo(0,-.5,2.5,-3)}ctx.stroke();
+  // 前髮／頭飾
+  if(o.acc==='vajra'){ctx.fillStyle='#c48a5a';for(const [x,y] of [[-5,-27],[0,-28.5],[5,-27],[-5,-23],[0,-24.5],[5,-23]]){ctx.beginPath();ctx.arc(x,y,1.2,0,7);ctx.fill()}}
+  else{ctx.beginPath();ctx.moveTo(-21,-12);ctx.quadraticCurveTo(-23,-36,0,-36);ctx.quadraticCurveTo(23,-36,21,-12);
+    ctx.lineTo(17,-18);ctx.lineTo(14,-14);ctx.lineTo(10,-21);ctx.lineTo(5,-17);ctx.lineTo(1,-23);ctx.lineTo(-4,-18);ctx.lineTo(-9,-22);ctx.lineTo(-13,-15);ctx.lineTo(-17,-19);ctx.closePath();fill(o.hair2,o.hair,-36,-12);ol();
+    if(vec){ctx.strokeStyle='#ffffff55';ctx.lineWidth=2;ctx.beginPath();ctx.arc(-4,-28,9,3.6,4.6);ctx.stroke()}}
+  if(o.acc==='sword'){ctx.beginPath();ctx.ellipse(0,-38,7,5.5,0,0,7);fill(o.hair2,o.hair,-44,-32);ol();ctx.fillStyle='#e8c050';ctx.fillRect(-11,-39,22,2.2)}
+  if(o.acc==='pill'){for(const sx of [-1,1]){ctx.beginPath();ctx.arc(sx*15,-33,6,0,7);fill(o.hair2,o.hair,-39,-27);ol()}ctx.fillStyle='#5fd07a';ctx.beginPath();ctx.ellipse(15,-38,4,2,-.6,0,7);ctx.fill()}
+  if(o.head==='crown'){ctx.beginPath();ctx.moveTo(-9,-40);ctx.lineTo(-9,-46);ctx.lineTo(-4.5,-42);ctx.lineTo(0,-49);ctx.lineTo(4.5,-42);ctx.lineTo(9,-46);ctx.lineTo(9,-40);ctx.closePath();fill('#ffe27a','#d89c2a',-49,-40);ol();ctx.fillStyle='#e0303a';ctx.beginPath();ctx.arc(0,-43,1.6,0,7);ctx.fill()}
+  if(o.head==='mask'){ctx.save();ctx.translate(15,-30);ctx.rotate(.4);ctx.beginPath();ctx.moveTo(-6,-4);ctx.lineTo(-7,-11);ctx.lineTo(-2,-6);ctx.lineTo(2,-6);ctx.lineTo(7,-11);ctx.lineTo(6,-4);ctx.quadraticCurveTo(6,5,0,7);ctx.quadraticCurveTo(-6,5,-6,-4);fill('#ffffff','#e8e0e8',-11,7);ol();ctx.fillStyle='#e0303a';ctx.fillRect(-4,-2,3,1.2);ctx.fillRect(1,-2,3,1.2);ctx.fillRect(-.6,1,1.2,3);ctx.restore()}
+  if(o.head==='flower'){for(let k=0;k<5;k++){const a=k*1.256;ctx.fillStyle='#ffb0c8';ctx.beginPath();ctx.arc(-14+Math.cos(a)*3,-31+Math.sin(a)*3,2.6,0,7);ctx.fill()}ctx.fillStyle='#ffe27a';ctx.beginPath();ctx.arc(-14,-31,1.6,0,7);ctx.fill()}
+  if(o.acc==='talis'){ctx.beginPath();ctx.moveTo(-12,-33);ctx.lineTo(12,-33);ctx.lineTo(9,-43);ctx.lineTo(-9,-43);ctx.closePath();fill('#2a2438','#16121e',-43,-33);ol();ctx.fillStyle='#e8c050';ctx.fillRect(-2,-41,4,5)}
+  ctx.restore()}
+// ---- 妖獸 ----
+function wolf(ctx,vec,col='#8a94a8',col2='#5c6478',angry=1){ctx.save();ctx.lineJoin='round';const ol=()=>{if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=2.2;ctx.stroke()}};
+  const fill=(c,c2,y0,y1)=>{if(vec){const g=ctx.createLinearGradient(0,y0,0,y1);g.addColorStop(0,c);g.addColorStop(1,c2);ctx.fillStyle=g}else ctx.fillStyle=c;ctx.fill()};
+  ctx.beginPath();ctx.moveTo(14,2);ctx.quadraticCurveTo(30,-8,28,-18);ctx.quadraticCurveTo(22,-4,12,-2);fill(col,col2,-18,4);ol(); // 尾巴
+  ctx.beginPath();ctx.ellipse(4,4,17,12,0,0,7);fill(col,col2,-8,16);ol();
+  for(const x of [-6,4,12]){ctx.beginPath();ctx.roundRect(x-3,10,6,8,2.5);fill(col2,col2,10,18);ol()}
+  ctx.beginPath();ctx.ellipse(-10,-6,14,13,0,0,7);fill(col,col2,-19,7);ol();
+  for(const sx of [-1,1]){ctx.beginPath();ctx.moveTo(-10+sx*5-4,-15);ctx.lineTo(-10+sx*8,-27);ctx.lineTo(-10+sx*9+3,-13);ctx.closePath();fill(col,col2,-27,-13);ol();ctx.fillStyle='#ff9aa8';ctx.beginPath();ctx.moveTo(-10+sx*6,-16);ctx.lineTo(-10+sx*8,-23);ctx.lineTo(-10+sx*9.5,-15);ctx.fill()}
+  ctx.beginPath();ctx.ellipse(-18,-1,7,5,0,0,7);ctx.fillStyle='#e8ecf2';ctx.fill();ol();ctx.fillStyle='#2a1a24';ctx.beginPath();ctx.arc(-24,-3,2,0,7);ctx.fill();
+  for(const x of [-15,-6]){ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(x,-8,3.4,4,0,0,7);ctx.fill();ctx.fillStyle='#e0303a';ctx.beginPath();ctx.arc(x-.6,-7.4,2,0,7);ctx.fill();ctx.fillStyle='#2a1a24';ctx.beginPath();ctx.arc(x-.6,-7.4,1,0,7);ctx.fill();
+    if(angry){ctx.strokeStyle='#2a1a24';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-4,-13+(x<-10?0:2));ctx.lineTo(x+4,-13+(x<-10?2:0));ctx.stroke()}}
+  ctx.fillStyle='#fff';P(ctx,[[-21,3],[-19.5,7],[-18,3]]);ctx.fill();P(ctx,[[-16,3],[-14.5,6.5],[-13,3]]);ctx.fill();ctx.restore()}
+function wisp(ctx,vec,col='#6fe0b0',col2='#2a9a7a'){ctx.save();ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(0,-26);ctx.quadraticCurveTo(6,-14,12,-8);ctx.quadraticCurveTo(18,6,8,12);ctx.quadraticCurveTo(0,16,-8,12);ctx.quadraticCurveTo(-18,6,-12,-8);ctx.quadraticCurveTo(-4,-16,0,-26);
+  if(vec){const g=ctx.createRadialGradient(0,2,2,0,0,20);g.addColorStop(0,'#e8fff4');g.addColorStop(.5,col);g.addColorStop(1,col2);ctx.fillStyle=g}else ctx.fillStyle=col;ctx.fill();if(vec){ctx.strokeStyle=OUT;ctx.lineWidth=2.2;ctx.stroke()}
+  ctx.fillStyle='#1a2a2a';for(const x of [-5,5]){ctx.beginPath();ctx.ellipse(x,0,2.4,3.4,0,0,7);ctx.fill()}ctx.fillStyle='#fff';for(const x of [-5.8,4.2]){ctx.beginPath();ctx.arc(x,-1.2,1,0,7);ctx.fill()}
+  ctx.strokeStyle='#1a2a2a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,5,2.5,.2,Math.PI-.2);ctx.stroke();ctx.restore()}
+// ================= 像素化：用低解析度畫一次，再把顏色吸附到調色盤、加描邊 =================
+function pixelize(draw,w,h,scale,pal){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.translate(w/2,h*.62);x.scale(scale,scale);draw(x);
+  const im=x.getImageData(0,0,w,h),d=im.data,P=pal.map(hx=>[parseInt(hx.slice(1,3),16),parseInt(hx.slice(3,5),16),parseInt(hx.slice(5,7),16)]);
+  for(let i=0;i<d.length;i+=4){if(d[i+3]<110){d[i+3]=0;continue}let b=0,bd=1e9;for(let k=0;k<P.length;k++){const q=P[k],dd=(d[i]-q[0])**2+(d[i+1]-q[1])**2+(d[i+2]-q[2])**2;if(dd<bd){bd=dd;b=k}}d[i]=P[b][0];d[i+1]=P[b][1];d[i+2]=P[b][2];d[i+3]=255}
+  const op=i=>d[i*4+3]>0,o=new Uint8ClampedArray(d);const oc=[43,29,42];
+  for(let y=0;y<h;y++)for(let xx=0;xx<w;xx++){const i=y*w+xx;if(op(i))continue;if((xx>0&&op(i-1))||(xx<w-1&&op(i+1))||(y>0&&op(i-w))||(y<h-1&&op(i+w))){o[i*4]=oc[0];o[i*4+1]=oc[1];o[i*4+2]=oc[2];o[i*4+3]=255}}
+  x.setTransform(1,0,0,1,0,0);x.putImageData(new ImageData(o,w,h),0,0);return c}
+const palOf=o=>[o.robe,o.shade,o.trim,o.trim2,o.hair,o.hair2,o.iris,o.skin||SKIN,o.skin?'#e8b888':SKIN2,'#24182a','#ffffff','#ff8fa0','#6a2a2a','#3a3046','#e8c050','#6a4a2a','#5a1a24','#e8a040','#c0402a','#5fd07a','#f6e7a8','#d03a2a','#8a5a2a','#7a3a1a','#c48a5a','#2a2438'];
+function pixChibi(o,pose){return pixelize(x=>chibi(x,o,false,pose),34,44,.5,palOf(o))}
+// ================= 共用：背景 =================
+function sky(ctx,W,H,top,bot){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,top);g.addColorStop(1,bot);ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+function mountains(ctx,W,H,y,col,amp,seed){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W;x+=W/24){const n=Math.sin(x*.011+seed)*.6+Math.sin(x*.027+seed*2)*.4;ctx.lineTo(x,y-amp*(.5+n*.5))}ctx.lineTo(W,H);ctx.fill()}
+let R=1;const rnd=()=>{R=(R*16807)%2147483647;return R/2147483647};
+// ================= 圖 1：角色一覽 =================
+function lineup(ctx,W,H,pix){sky(ctx,W,H,'#2a2142','#120e1a');mountains(ctx,W,H,H*.62,'#231c36',90,1);mountains(ctx,W,H,H*.7,'#1b1529',60,3);
+  ctx.fillStyle='#ffffff10';for(let i=0;i<60;i++){R=i*97+3;ctx.fillRect(rnd()*W,rnd()*H*.5,2,2)}
+  ctx.fillStyle='#f2c14e';ctx.font='bold 44px "Noto Sans TC","PingFang TC",sans-serif';ctx.textAlign='center';ctx.fillText('萬妖仙途・Q版角色'+(pix?'（像素風）':'（向量風）'),W/2,70);
+  ctx.fillStyle='#b9ad96';ctx.font='20px "Noto Sans TC",sans-serif';ctx.fillText('四大門派＋邪道範例・妖獸',W/2,104);
+  const list=['sword','pill','talis','vajra','sword_x'];const gw=W/6.2;
+  list.forEach((k,i)=>{const o=SECT[k],cx=gw*(i+.85),cy=H*.52;
+    ctx.fillStyle='#00000055';ctx.beginPath();ctx.ellipse(cx,cy+118,62,14,0,0,7);ctx.fill();
+    if(o.evil){ctx.save();const g=ctx.createRadialGradient(cx,cy,10,cx,cy,150);g.addColorStop(0,'#ff2a3a40');g.addColorStop(1,'#ff2a3a00');ctx.fillStyle=g;ctx.fillRect(cx-160,cy-170,320,320);ctx.restore()}
+    if(pix){const c=pixChibi(o),k=5;ctx.imageSmoothingEnabled=false;ctx.drawImage(c,cx-c.width*k/2,cy+118-c.height*k,c.width*k,c.height*k)}
+    else{ctx.save();ctx.translate(cx,cy+8);ctx.scale(3.4,3.4);chibi(ctx,o,true);ctx.restore()}
+    ctx.fillStyle=o.evil?'#ff8a8a':o.trim==='#3c9a52'?'#8fe0a0':o.trim==='#7a4fd0'?'#c9a8ff':o.trim==='#b5432a'?'#ffc870':'#9fd0ff';ctx.font='bold 24px "Noto Sans TC",sans-serif';ctx.fillText(o.n,cx,cy+165);
+    ctx.fillStyle='#b9ad96';ctx.font='16px "Noto Sans TC",sans-serif';ctx.fillText(o.evil?'青雲劍宗・邪道':['飛劍','煉丹','雷符','體修'][i],cx,cy+190)});
+  // 妖獸
+  const mx=gw*5.75;ctx.fillStyle='#b9ad96';ctx.font='bold 20px "Noto Sans TC",sans-serif';ctx.fillText('妖獸',mx,H*.27);
+  if(pix){const a=pixelize(x=>wolf(x,false),40,30,.62,['#8a94a8','#5c6478','#ff9aa8','#e8ecf2','#2a1a24','#ffffff','#e0303a']),b=pixelize(x=>wisp(x,false),28,34,.6,['#6fe0b0','#2a9a7a','#1a2a2a','#ffffff','#e8fff4']);
+    ctx.imageSmoothingEnabled=false;ctx.drawImage(a,mx-a.width*2.6,H*.38-a.height*2.6,a.width*5.2,a.height*5.2);ctx.drawImage(b,mx-b.width*2.6,H*.66-b.height*2.6,b.width*5.2,b.height*5.2)}
+  else{ctx.save();ctx.translate(mx+6,H*.4);ctx.scale(2.6,2.6);wolf(ctx,true);ctx.restore();ctx.save();ctx.translate(mx,H*.68);ctx.scale(2.6,2.6);wisp(ctx,true);ctx.restore()}
+  ctx.fillStyle='#d8ccb4';ctx.font='16px "Noto Sans TC",sans-serif';ctx.fillText('山狼',mx,H*.5);ctx.fillText('沼澤鬼火',mx,H*.8);
+}
+// ================= 圖 2：遊戲畫面 =================
+function scene(ctx,W,H,pix){
+  const L=pix?3:1,w=W/L,h=H/L;let c=ctx,off;
+  if(pix){off=document.createElement('canvas');off.width=w;off.height=h;c=off.getContext('2d')}
+  // 地面
+  R=7;const T=pix?8:24;const g0='#4f8a3c',gs=['#4f8a3c','#55923f','#4a8338'];
+  for(let y=0;y<h;y+=T)for(let x=0;x<w;x+=T){c.fillStyle=gs[(rnd()*3)|0];c.fillRect(x,y,T,T)}
+  if(!pix){const g=c.createRadialGradient(w/2,h*.55,40,w/2,h*.55,h*.7);g.addColorStop(0,'#ffffff10');g.addColorStop(1,'#00000040');c.fillStyle=g;c.fillRect(0,0,w,h)}
+  // 草叢、花、石頭、樹
+  R=11;for(let i=0;i<70;i++){const x=rnd()*w,y=rnd()*h,k=rnd();
+    if(k<.55){c.fillStyle='#3d7030';const s=pix?1:3;c.fillRect(x,y,s,s*3);c.fillRect(x+s*2,y-s,s,s*4);c.fillRect(x+s*4,y+s,s,s*2)}
+    else if(k<.75){c.fillStyle=pick(['#ffd84a','#ff9ab0','#ffffff'],k);const s=pix?1:3;c.fillRect(x,y,s*2,s*2);c.fillStyle='#ffffffaa';c.fillRect(x,y,s,s)}
+    else if(k<.85){const s=pix?1:3;c.fillStyle='#8a8f99';c.fillRect(x,y,s*5,s*3);c.fillStyle='#b0b4bc';c.fillRect(x+s,y,s*3,s);c.fillStyle='#5c6270';c.fillRect(x,y+s*2,s*5,s)}}
+  const tree=(x,y,s)=>{c.fillStyle='#00000040';c.beginPath();c.ellipse(x,y+2*s,9*s,3*s,0,0,7);c.fill();c.fillStyle='#6a4a2a';c.fillRect(x-1.5*s,y-6*s,3*s,8*s);
+    for(const [dx,dy,r,col] of [[0,-14,10,'#2f6a2a'],[-5,-11,7,'#3a7a30'],[5,-12,7,'#3a7a30'],[-2,-17,6,'#4a9a3c'],[2,-14,4,'#5aac48']]){c.fillStyle=col;c.beginPath();c.arc(x+dx*s,y+dy*s,r*s,0,7);c.fill()}};
+  const S=pix?1:3;tree(w*.1,h*.2,S);tree(w*.88,h*.33,S);tree(w*.15,h*.82,S);tree(w*.9,h*.9,S);
+  const P0={x:w*.5,y:h*.56};
+  // 靈氣
+  R=5;for(let i=0;i<26;i++){const a=rnd()*7,d=(40+rnd()*90)*S/ (pix?1:1);const x=P0.x+Math.cos(a)*d*(pix?1:1),y=P0.y+Math.sin(a)*d;c.fillStyle=rnd()<.2?'#ffd84a':'#4ac0ff';const s=pix?2:6;
+    if(!pix){c.save();c.globalCompositeOperation='lighter';c.fillStyle='#4ac0ff30';c.beginPath();c.arc(x,y,8,0,7);c.fill();c.restore();c.fillStyle=rnd()<.25?'#ffd84a':'#7ad8ff'}c.save();c.translate(x,y);c.rotate(.785);c.fillRect(-s/2,-s/2,s,s);c.restore()}
+  // 劍氣環
+  if(!pix){c.save();c.globalCompositeOperation='lighter';const rg=c.createRadialGradient(P0.x,P0.y,30,P0.x,P0.y,120);rg.addColorStop(0,'#7fc4ff00');rg.addColorStop(.8,'#7fc4ff22');rg.addColorStop(1,'#7fc4ff00');c.fillStyle=rg;c.beginPath();c.arc(P0.x,P0.y,120,0,7);c.fill();c.restore()}
+  else{c.strokeStyle='#9fd4ff';c.globalAlpha=.5;c.beginPath();c.arc(P0.x|0,P0.y|0,38,0,7);c.stroke();c.globalAlpha=1}
+  // 妖獸群
+  R=21;const mobs=[];for(let i=0;i<16;i++){const a=rnd()*7,d=(pix?42:126)+rnd()*(pix?60:180);mobs.push({x:P0.x+Math.cos(a)*d,y:P0.y+Math.sin(a)*d*1.1,t:rnd()<.75?'w':'g',hit:rnd()<.25})}
+  mobs.sort((a,b)=>a.y-b.y);
+  const wp=pix&&pixelize(x=>wolf(x,false),40,30,.62,['#8a94a8','#5c6478','#ff9aa8','#e8ecf2','#2a1a24','#ffffff','#e0303a']),gp=pix&&pixelize(x=>wisp(x,false),28,34,.6,['#6fe0b0','#2a9a7a','#1a2a2a','#ffffff','#e8fff4']);
+  for(const m of mobs){c.fillStyle='#00000035';c.beginPath();c.ellipse(m.x,m.y+(pix?9:26),pix?9:26,pix?2.5:7,0,0,7);c.fill();
+    if(pix){const im=m.t==='w'?wp:gp,sc=.75;c.save();c.translate(m.x,m.y);if(m.x>P0.x)c.scale(-1,1);c.drawImage(im,-im.width*sc/2,-im.height*sc*.6,im.width*sc,im.height*sc);c.restore()}
+    else{c.save();c.translate(m.x,m.y);if(m.x>P0.x)c.scale(-1,1);c.scale(1.25,1.25);m.t==='w'?wolf(c,true):wisp(c,true);c.restore()}
+    if(m.hit){c.save();c.globalCompositeOperation='lighter';c.fillStyle='#ffffff';c.globalAlpha=.8;const s=pix?1:3;for(let k=0;k<4;k++){const a=k*1.57+.4;c.fillRect(m.x+Math.cos(a)*6*s-s,m.y-6*s+Math.sin(a)*6*s-s,2*s,2*s)}c.restore()}}
+  // 精英
+  const E={x:P0.x-w*.28,y:P0.y-h*.2};const ep=pix&&pixelize(x=>wolf(x,false,'#c08040','#7a4a20'),40,30,.62,['#c08040','#7a4a20','#ff9aa8','#e8ecf2','#2a1a24','#ffffff','#e0303a']);if(pix){c.save();c.translate(E.x,E.y);c.drawImage(ep,-ep.width*.7,-ep.height*.9,ep.width*1.4,ep.height*1.4);c.restore()}else{c.save();c.translate(E.x,E.y);c.scale(2.2,2.2);wolf(c,true,'#c08040','#7a4a20');c.restore()}
+  c.fillStyle='#000a';c.fillRect(E.x-(pix?14:42),E.y-(pix?20:60),pix?28:84,pix?2:6);c.fillStyle='#ffd84a';c.fillRect(E.x-(pix?14:42),E.y-(pix?20:60),pix?17:52,pix?2:6);
+  // 角色
+  c.fillStyle='#00000045';c.beginPath();c.ellipse(P0.x,P0.y+(pix?13:38),pix?8:24,pix?2.5:7,0,0,7);c.fill();
+  if(pix){const pc=pixChibi(SECT.sword);c.drawImage(pc,(P0.x-pc.width/2)|0,(P0.y-pc.height*.62)|0)}else{c.save();c.translate(P0.x,P0.y-14);c.scale(1.65,1.65);chibi(c,SECT.sword,true,{arm:-.5});c.restore()}
+  // 環繞飛劍＋射出的飛劍
+  const sword=(x,y,a,s,glow)=>{c.save();c.translate(x,y);c.rotate(a);
+    if(!pix&&glow){c.save();c.globalCompositeOperation='lighter';const g=c.createLinearGradient(-60*s,0,10*s,0);g.addColorStop(0,'#5fb0ff00');g.addColorStop(1,'#9fd4ff90');c.fillStyle=g;c.beginPath();c.moveTo(-60*s,0);c.lineTo(8*s,-4*s);c.lineTo(8*s,4*s);c.closePath();c.fill();c.restore()}
+    if(pix){c.fillStyle='#2a5c9a';c.fillRect(-6,-1,3,3);c.fillStyle='#e8c050';c.fillRect(-3,-2,1,5);c.fillStyle='#dff0ff';c.fillRect(-2,0,8,1);c.fillStyle='#ffffff';c.fillRect(-2,-1,7,1);if(glow){c.fillStyle='#7fc4ff';c.globalAlpha=.5;c.fillRect(-14,0,10,1);c.globalAlpha=1}}
+    else{c.fillStyle='#2a5c9a';c.fillRect(-14*s,-2*s,7*s,4*s);c.fillStyle='#e8c050';c.fillRect(-7*s,-5*s,3*s,10*s);c.fillStyle='#eef6ff';c.beginPath();c.moveTo(-4*s,-2.5*s);c.lineTo(16*s,-1.5*s);c.lineTo(22*s,0);c.lineTo(16*s,1.5*s);c.lineTo(-4*s,2.5*s);c.closePath();c.fill();c.strokeStyle=OUT;c.lineWidth=1.5;c.stroke();c.fillStyle='#ffffff';c.fillRect(-2*s,-1*s,16*s,1*s)}
+    c.restore()};
+  const orR=pix?26:78;for(let i=0;i<5;i++){const a=i/5*Math.PI*2+.3;sword(P0.x+Math.cos(a)*orR,P0.y+Math.sin(a)*orR*.85,a+Math.PI/2,1,true)}
+  const shots=[[ -0.9,0.55],[-2.3,.75],[.4,.6],[2.6,.7],[-1.6,.85]];for(const [a,f] of shots){const d=(pix?70:210)*f;sword(P0.x+Math.cos(a)*d,P0.y+Math.sin(a)*d,a,1.3,true)}
+  // 劍雨落點
+  const rain=[[P0.x+w*.25,P0.y-h*.16],[P0.x-w*.08,P0.y+h*.24]];for(const [x,y] of rain){
+    if(pix){c.fillStyle='#bfe2ff';c.fillRect(x|0,(y-20)|0,1,16);c.fillRect((x-2)|0,(y-20)|0,5,1);c.strokeStyle='#9fd4ff';c.globalAlpha=.6;c.beginPath();c.ellipse(x,y,10,4,0,0,7);c.stroke();c.globalAlpha=1}
+    else{c.save();c.globalCompositeOperation='lighter';const g=c.createRadialGradient(x,y,4,x,y,46);g.addColorStop(0,'#ffffffcc');g.addColorStop(.4,'#7fc4ff66');g.addColorStop(1,'#7fc4ff00');c.fillStyle=g;c.beginPath();c.ellipse(x,y,52,22,0,0,7);c.fill();
+      const lg=c.createLinearGradient(x,y-170,x,y);lg.addColorStop(0,'#7fc4ff00');lg.addColorStop(1,'#dff0ffee');c.fillStyle=lg;c.fillRect(x-4,y-170,8,165);c.restore();c.save();c.translate(x,y-10);c.rotate(Math.PI/2);sword(0,0,0,1.4,false);c.restore()}}
+  // 傷害數字
+  const num=(x,y,t,col)=>{if(pix){c.font='bold 8px monospace'}else c.font='bold 26px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillStyle='#000';c.fillText(t,x+(pix?1:2),y+(pix?1:2));c.fillStyle=col;c.fillText(t,x,y)};
+  num(P0.x+w*.2,P0.y-h*.11,'1,286','#ffffff');num(E.x+(pix?6:20),E.y-(pix?26:78),'3,904','#ffd84a');num(P0.x-w*.3,P0.y+h*.14,'842','#ffffff');
+  if(pix){ctx.imageSmoothingEnabled=false;ctx.drawImage(off,0,0,W,H)}
+  // 介面（兩種風格各自的樣子）
+  const font=s=>pix?`bold ${s}px monospace`:`bold ${s}px "Noto Sans TC",sans-serif`;
+  ctx.fillStyle='#0a0810b0';ctx.fillRect(0,0,W,24);const xp=ctx.createLinearGradient(0,0,W,0);xp.addColorStop(0,'#3fbfff');xp.addColorStop(1,'#a7f0ff');ctx.fillStyle=xp;ctx.fillRect(0,0,W*.64,pix?18:14);
+  ctx.textAlign='left';ctx.font=font(26);ctx.fillStyle='#fff';ctx.fillText('Lv 17',22,70);ctx.textAlign='center';ctx.font=font(46);ctx.fillText('2:48',W/2,78);ctx.textAlign='right';ctx.font=font(26);ctx.fillText('1,264 殺',W-22,70);
+  const icons=['萬','環','斬','雨','心','步','骨'];icons.forEach((t,i)=>{const x=22+i*64,y=96;ctx.fillStyle=i===0?'#3a2a10':'#000000a0';if(pix){ctx.fillRect(x,y,54,54);ctx.strokeStyle=i===0?'#f2c14e':i>3?'#5fd0a0':'#ffffff60';ctx.lineWidth=4;ctx.strokeRect(x+2,y+2,50,50)}else{ctx.beginPath();ctx.roundRect(x,y,54,54,12);ctx.fill();ctx.strokeStyle=i===0?'#f2c14e':i>3?'#5fd0a0':'#ffffff50';ctx.lineWidth=2.5;ctx.stroke()}
+    ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font=font(26);ctx.fillText(t,x+27,y+37);ctx.fillStyle='#f2c14e';ctx.font=font(15);ctx.fillText(i===0?'極':String(5-i%3),x+48,y+52)});
+  // 玩家血條
+  const bx=W/2-60,by=H*.56+(pix?54:60);ctx.fillStyle='#000c';ctx.fillRect(bx,by,120,12);ctx.fillStyle='#5fe07a';ctx.fillRect(bx+2,by+2,82,8);
+  // 搖桿
+  ctx.globalAlpha=.25;ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(W*.5,H*.86,90,0,7);ctx.stroke();ctx.globalAlpha=.45;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(W*.5+40,H*.86-30,40,0,7);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#f2c14e';ctx.font=font(22);ctx.textAlign='center';ctx.fillText(pix?'像素風・遊戲畫面示意':'向量風・遊戲畫面示意',W/2,H-30);
+}
+function pick(a,k){return a[Math.floor(k*97)%a.length]}
+
+// ================= 造型：飛劍外觀、拖尾、光環 =================
+const BLADE={
+  qingming:{n:'青冥劍',blade:'#dff2ff',edge:'#7fc4ff',hilt:'#2a5c9a',guard:'#e8c050',trail:['#5fb0ff','#bfe6ff'],kind:'glow'},
+  chixiao:{n:'赤霄劍',blade:'#ffe0c8',edge:'#ff7a3a',hilt:'#8a1a1a',guard:'#ffcf4a',trail:['#ff3a1a','#ffd04a'],kind:'fire'},
+  gujian:{n:'白骨劍',blade:'#f2ecdc',edge:'#b8ac90',hilt:'#4a3a3a',guard:'#7a6a5a',trail:['#8a5ad0','#c8a0ff'],kind:'soul'},
+  xinghe:{n:'星河劍',blade:'#e8dcff',edge:'#b07aff',hilt:'#2a1a5a',guard:'#ffe27a',trail:['#7a5aff','#ffffff'],kind:'star'},
+  yinghua:{n:'櫻吹雪',blade:'#fff0f4',edge:'#ff9ab8',hilt:'#7a3a4a',guard:'#ffe27a',trail:['#ff9ab8','#ffe6ee'],kind:'sakura'},
+};
+function fsword(c,b,x,y,a,s,trail){c.save();c.translate(x,y);c.rotate(a);
+  if(trail){c.save();c.globalCompositeOperation='lighter';const g=c.createLinearGradient(-70*s,0,10*s,0);g.addColorStop(0,b.trail[0]+'00');g.addColorStop(1,b.trail[0]+'aa');c.fillStyle=g;c.beginPath();c.moveTo(-70*s,0);c.lineTo(8*s,-5*s);c.lineTo(8*s,5*s);c.closePath();c.fill();
+    R=Math.floor(x*7+y);for(let i=0;i<7;i++){const px=-rnd()*60*s,py=(rnd()-.5)*10*s;c.fillStyle=b.trail[1];c.globalAlpha=.4+rnd()*.6;
+      if(b.kind==='sakura'){for(let k=0;k<5;k++){const q=k*1.256;c.beginPath();c.arc(px+Math.cos(q)*1.6*s,py+Math.sin(q)*1.6*s,1.2*s,0,7);c.fill()}}
+      else if(b.kind==='star'){c.fillRect(px-2*s,py-.4*s,4*s,.8*s);c.fillRect(px-.4*s,py-2*s,.8*s,4*s)}
+      else if(b.kind==='fire'){c.beginPath();c.arc(px,py,(1+rnd()*2)*s,0,7);c.fill()}
+      else{c.beginPath();c.arc(px,py,1.2*s,0,7);c.fill()}}c.restore()}
+  c.fillStyle=b.hilt;c.fillRect(-14*s,-2*s,7*s,4*s);c.fillStyle=b.guard;c.fillRect(-7*s,-5*s,3*s,10*s);
+  c.beginPath();c.moveTo(-4*s,-2.6*s);c.lineTo(16*s,-1.6*s);c.lineTo(22*s,0);c.lineTo(16*s,1.6*s);c.lineTo(-4*s,2.6*s);c.closePath();const bg=c.createLinearGradient(0,-3*s,0,3*s);bg.addColorStop(0,b.blade);bg.addColorStop(1,b.edge);c.fillStyle=bg;c.fill();c.strokeStyle=OUT;c.lineWidth=1.4;c.stroke();
+  c.fillStyle='#ffffffcc';c.fillRect(-2*s,-1*s,15*s,.9*s);c.restore()}
+function aura(c,t,x,y,s){c.save();c.translate(x,y);c.scale(s,s);
+  if(t==='lotus'){c.save();c.globalCompositeOperation='lighter';const g=c.createRadialGradient(0,34,2,0,34,30);g.addColorStop(0,'#ffb0d060');g.addColorStop(1,'#ffb0d000');c.fillStyle=g;c.beginPath();c.ellipse(0,34,32,12,0,0,7);c.fill();c.restore();
+    for(let k=0;k<8;k++){const a=k/8*Math.PI*2;c.save();c.translate(Math.cos(a)*18,34+Math.sin(a)*6);c.rotate(a+Math.PI/2);c.beginPath();c.ellipse(0,0,4,8,0,0,7);const pg=c.createLinearGradient(0,-8,0,8);pg.addColorStop(0,'#fff0f6');pg.addColorStop(1,'#ff8ab0');c.fillStyle=pg;c.fill();c.strokeStyle='#c0507a';c.lineWidth=.8;c.stroke();c.restore()}}
+  if(t==='moon'){c.save();c.globalCompositeOperation='lighter';const g=c.createRadialGradient(0,-12,26,0,-12,40);g.addColorStop(0,'#ffe27a00');g.addColorStop(.6,'#ffe27a70');g.addColorStop(1,'#ffe27a00');c.fillStyle=g;c.beginPath();c.arc(0,-12,40,0,7);c.fill();c.restore();
+    c.strokeStyle='#ffe9a0';c.lineWidth=2;c.beginPath();c.arc(0,-12,33,0,7);c.stroke();for(let k=0;k<12;k++){const a=k/12*Math.PI*2;c.fillStyle='#fff6d0';c.beginPath();c.arc(Math.cos(a)*33,-12+Math.sin(a)*33,1.6,0,7);c.fill()}}
+  if(t==='flame'){c.save();c.globalCompositeOperation='lighter';R=3;for(let k=0;k<16;k++){const a=-Math.PI+k/15*Math.PI,r=28+rnd()*6;const fx=Math.cos(a)*r,fy=6+Math.sin(a)*r*1.3;const g=c.createRadialGradient(fx,fy,1,fx,fy,9);g.addColorStop(0,'#ffd04acc');g.addColorStop(.5,'#ff3a1a66');g.addColorStop(1,'#ff3a1a00');c.fillStyle=g;c.beginPath();c.arc(fx,fy,9,0,7);c.fill()}c.restore()}
+  if(t==='star'){c.save();c.globalCompositeOperation='lighter';R=9;for(let k=0;k<22;k++){const px=(rnd()-.5)*70,py=-40+rnd()*80;c.fillStyle=rnd()<.5?'#c8a0ff':'#ffffff';c.globalAlpha=.4+rnd()*.6;const z=1+rnd()*1.5;c.fillRect(px-z*2,py-.5,z*4,1);c.fillRect(px-.5,py-z*2,1,z*4)}c.restore()}
+  c.restore()}
+// 四套時裝（都是劍修）
+const OUTFIT=[
+  {id:'baiyi',n:'白衣劍仙',r:'稀有',rc:'#4aa0ff',price:'1,200',cur:'stone',o:{...SECT.sword,robe:'#ffffff',shade:'#d8e4f0',trim:'#7fb8e8',trim2:'#4a7ab0',hairStyle:'long',pattern:'cloud',cape:'#eef6ff',cape2:'#c4d8ee'},blade:'qingming',aura:'',},
+  {id:'chiyan',n:'赤焰嫁衣',r:'史詩',rc:'#b07aff',price:'680',cur:'jade',o:{...SECT.sword,robe:'#e8403a',shade:'#a8201e',trim:'#ffcf4a',trim2:'#b8861a',hair:'#1a1420',hair2:'#3a2a34',iris:'#ff6a3a',pattern:'flame',head:'flower',hilt:'#8a1a1a'},blade:'chixiao',aura:'flame'},
+  {id:'mozun',n:'黑金魔尊',r:'傳說',rc:'#ffb020',price:'限定祈願',cur:'gacha',o:{...SECT.sword_x,robe:'#1e1824',shade:'#0e0a12',trim:'#e8c050',trim2:'#9a7420',pattern:'gold',head:'crown',cape:'#3a1020',cape2:'#1a0610',hilt:'#2a1a1a'},blade:'gujian',aura:'moon'},
+  {id:'sakura',n:'櫻花祭',r:'傳說',rc:'#ffb020',price:'限定祈願',cur:'gacha',o:{...SECT.sword,robe:'#ffe6ee',shade:'#f2b8c8',trim:'#e86a90',trim2:'#b8406a',hair:'#3a2a3a',hair2:'#5a405a',iris:'#e86a90',hairStyle:'long',pattern:'sakura',head:'mask'},blade:'yinghua',aura:'lotus'},
+];
+function hero(c,O,x,y,s,swords=3){if(O.aura==='moon'||O.aura==='flame'||O.aura==='star')aura(c,O.aura,x,y,s);
+  c.fillStyle='#00000045';c.beginPath();c.ellipse(x,y+34*s,22*s,6*s,0,0,7);c.fill();
+  if(O.aura==='lotus')aura(c,'lotus',x,y,s);
+  c.save();c.translate(x,y);c.scale(s,s);chibi(c,O.o,true,{arm:-.4});c.restore();
+  const b=BLADE[O.blade];for(let i=0;i<swords;i++){const a=i/swords*Math.PI*2-Math.PI/2+.4;fsword(c,b,x+Math.cos(a)*42*s,y-6*s+Math.sin(a)*30*s,a+Math.PI/2,s*.55,true)}}
+const JADE=(c,x,y,r)=>{const g=c.createLinearGradient(x-r,y-r,x+r,y+r);g.addColorStop(0,'#bff7e0');g.addColorStop(1,'#2aa87a');c.fillStyle=g;c.beginPath();c.moveTo(x,y-r);c.lineTo(x+r*.8,y);c.lineTo(x,y+r);c.lineTo(x-r*.8,y);c.closePath();c.fill();c.strokeStyle='#14523c';c.lineWidth=1.5;c.stroke()};
+const STONE=(c,x,y,r)=>{const g=c.createLinearGradient(x-r,y-r,x+r,y+r);g.addColorStop(0,'#e6d4ff');g.addColorStop(1,'#7a4fd0');c.fillStyle=g;c.beginPath();for(let k=0;k<6;k++){const a=k/6*Math.PI*2;c.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r)}c.closePath();c.fill();c.strokeStyle='#3a2470';c.lineWidth=1.5;c.stroke()};
+const F=(c,sz,w='bold')=>c.font=`${w} ${sz}px "Noto Sans TC","PingFang TC",sans-serif`;
+function rr(c,x,y,w,h,r,fill,stroke,lw=2){c.beginPath();c.roundRect(x,y,w,h,r);if(fill){c.fillStyle=fill;c.fill()}if(stroke){c.strokeStyle=stroke;c.lineWidth=lw;c.stroke()}}
+// ---- 圖 3：時裝一覽 ----
+function outfits(c,W,H){sky(c,W,H,'#2c2244','#130f1c');mountains(c,W,H,H*.66,'#221b35',80,2);
+  c.textAlign='center';c.fillStyle='#f2c14e';F(c,44);c.fillText('萬妖仙途・造型範例',W/2,70);c.fillStyle='#b9ad96';F(c,20,'normal');c.fillText('同一個劍修：時裝＋武器造型＋飛劍拖尾＋光環',W/2,104);
+  OUTFIT.forEach((O,i)=>{const x=W*(i+.5)/4,y=H*.47;
+    rr(c,x-150,150,300,560,22,'#ffffff08',O.rc+'88',2);
+    hero(c,O,x,y,3.2,4);
+    c.fillStyle=O.rc;F(c,28);c.fillText(O.n,x,H*.78);
+    rr(c,x-34,H*.78+14,68,26,13,O.rc+'33',O.rc,1.5);c.fillStyle=O.rc;F(c,15);c.fillText(O.r,x,H*.78+33);
+    c.fillStyle='#d8ccb4';F(c,16,'normal');c.fillText(`武器：${BLADE[O.blade].n}`,x,H*.78+66);c.fillText(O.aura?`光環：${{lotus:'步步生蓮',moon:'皓月輪',flame:'業火纏身',star:'星辰'}[O.aura]}`:'光環：無',x,H*.78+90)})}
+// ---- 圖 4：商店畫面 ----
+function shop(c,W,H){sky(c,W,H,'#241c36','#120e1a');
+  // 頂部貨幣
+  rr(c,0,0,W,96,0,'#0c0912cc');c.textAlign='left';c.fillStyle='#f2c14e';F(c,32);c.fillText('造型商店',28,60);
+  STONE(c,W-300,48,13);c.fillStyle='#fff';F(c,22);c.fillText('12,480',W-280,56);JADE(c,W-150,48,14);c.fillText('320',W-130,56);rr(c,W-70,32,30,30,8,'#2aa87a');c.fillStyle='#fff';F(c,22);c.textAlign='center';c.fillText('+',W-55,55);
+  // 分頁
+  const tabs=['時裝','武器','拖尾','光環','髮型','稱號'];tabs.forEach((t,i)=>{const x=20+i*114;rr(c,x,112,104,46,23,i===0?'#f2c14e':'#2e2440',i===0?null:'#4a3c60');c.fillStyle=i===0?'#2a1a06':'#d8ccb4';F(c,20);c.fillText(t,x+52,142)});
+  // 預覽
+  const O=OUTFIT[1];rr(c,20,176,W-40,430,24,'#1a1426','#4a3c60');
+  const g=c.createRadialGradient(W/2,380,20,W/2,380,260);g.addColorStop(0,'#ff6a3a30');g.addColorStop(1,'#ff6a3a00');c.fillStyle=g;c.fillRect(20,176,W-40,430);
+  hero(c,O,W/2,370,3.6,5);
+  c.textAlign='left';c.fillStyle=O.rc;F(c,30);c.fillText(O.n,44,226);rr(c,44,240,70,28,14,O.rc+'33',O.rc,1.5);c.fillStyle=O.rc;F(c,16);c.textAlign='center';c.fillText(O.r,79,260);
+  c.textAlign='left';c.fillStyle='#b9ad96';F(c,16,'normal');c.fillText('只改外觀，不影響數值',44,292);
+  rr(c,W-250,544,210,48,24,'#f2c14e');JADE(c,W-212,568,12);c.fillStyle='#2a1a06';F(c,22);c.textAlign='left';c.fillText('680  購買',W-192,576);
+  rr(c,44,544,150,48,24,'#2e2440','#6a5a80');c.fillStyle='#d8ccb4';F(c,20);c.textAlign='center';c.fillText('試穿中',119,576);
+  // 商品格
+  const items=[{O:OUTFIT[0],own:0},{O:OUTFIT[1],sel:1},{O:OUTFIT[2]},{O:OUTFIT[3]},{O:{...OUTFIT[0],n:'青衫書生',r:'普通',rc:'#c8c8c8',price:'300',cur:'stone',o:{...SECT.sword,robe:'#d8ecd8',shade:'#a8c8a8',trim:'#4a8a5a',trim2:'#2a5a3a'},aura:''},own:1},{O:{...OUTFIT[1],n:'玄衣夜行',r:'稀有',rc:'#4aa0ff',price:'900',cur:'stone',o:{...SECT.sword,robe:'#2a2a3a',shade:'#16161e',trim:'#5a6a8a',trim2:'#3a4a6a',hairStyle:'long'},aura:''}}];
+  items.forEach((it,i)=>{const col=i%3,row=Math.floor(i/3),x=20+col*((W-40)/3),y=626+row*300,w=(W-40)/3-12,h=286;const O=it.O;
+    rr(c,x+6,y,w,h,18,it.sel?'#2e2236':'#1c1628',it.sel?'#f2c14e':O.rc+'aa',it.sel?3.5:2);
+    const gg=c.createLinearGradient(0,y,0,y+h);gg.addColorStop(0,O.rc+'30');gg.addColorStop(1,O.rc+'00');c.fillStyle=gg;c.beginPath();c.roundRect(x+6,y,w,h,18);c.fill();
+    c.save();c.beginPath();c.roundRect(x+6,y,w,h-70,18);c.clip();hero(c,O,x+6+w/2,y+112,1.85,0);c.restore();
+    c.textAlign='center';c.fillStyle=O.rc;F(c,20);c.fillText(O.n,x+6+w/2,y+h-46);
+    if(it.own){c.fillStyle='#8fe0a0';F(c,17);c.fillText('已擁有',x+6+w/2,y+h-16)}
+    else if(O.cur==='gacha'){c.fillStyle='#ffcf6a';F(c,17);c.fillText('限定祈願',x+6+w/2,y+h-16)}
+    else{(O.cur==='jade'?JADE:STONE)(c,x+6+w/2-40,y+h-22,10);c.fillStyle='#fff';F(c,18);c.textAlign='left';c.fillText(O.price,x+6+w/2-24,y+h-15)}});
+}
+// ---- 圖 5：祈願（抽獎）畫面 ----
+function gacha(c,W,H){const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#3a1a44');g.addColorStop(.5,'#1a1030');g.addColorStop(1,'#0e0a18');c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.save();c.globalCompositeOperation='lighter';for(let k=0;k<18;k++){const a=k/18*Math.PI*2;c.fillStyle='#ffd04a10';c.beginPath();c.moveTo(W/2,520);c.lineTo(W/2+Math.cos(a)*900,520+Math.sin(a)*900);c.lineTo(W/2+Math.cos(a+.12)*900,520+Math.sin(a+.12)*900);c.closePath();c.fill()}c.restore();
+  R=4;for(let i=0;i<50;i++){c.fillStyle='#ffffff'+(rnd()<.5?'40':'90');const z=1+rnd()*2;c.fillRect(rnd()*W,rnd()*H*.7,z,z)}
+  rr(c,0,0,W,96,0,'#0c0912cc');c.textAlign='left';c.fillStyle='#f2c14e';F(c,32);c.fillText('限定祈願',28,60);JADE(c,W-150,48,14);c.fillStyle='#fff';F(c,22);c.fillText('320',W-130,56);
+  c.textAlign='center';c.fillStyle='#ffe9a0';F(c,40);c.fillText('魔尊降世',W/2,160);c.fillStyle='#d8c0e8';F(c,18,'normal');c.fillText('限時 14 天・傳說時裝「黑金魔尊」機率提升',W/2,194);
+  hero(c,OUTFIT[2],W/2,470,4.4,5);
+  // 機率與保底
+  rr(c,40,700,W-80,190,20,'#140e20dd','#6a4a90');c.textAlign='left';F(c,20);c.fillStyle='#fff';c.fillText('本池機率',66,740);
+  const odds=[['傳說','#ffb020','1.6%'],['史詩','#b07aff','13%'],['稀有','#4aa0ff','35.4%'],['仙緣碎片','#8fe0a0','50%']];
+  odds.forEach(([n,col,p],i)=>{const x=66+i*150;rr(c,x,758,136,60,12,col+'22',col,1.5);c.textAlign='center';c.fillStyle=col;F(c,17);c.fillText(n,x+68,782);c.fillStyle='#fff';F(c,20);c.fillText(p,x+68,808)});
+  c.textAlign='left';c.fillStyle='#d8ccb4';F(c,17,'normal');c.fillText('保底進度：再 37 抽必出傳說（80 抽保底）',66,852);rr(c,66,862,W-132,10,5,'#2a2038');rr(c,66,862,(W-132)*43/80,10,5,'#ffb020');
+  rr(c,W-196,716,130,32,16,'#2e2440','#8a7aa0',1.5);c.textAlign='center';c.fillStyle='#d8ccb4';F(c,15);c.fillText('完整機率表 ›',W-131,738);
+  // 按鈕
+  for(const [x,t,p] of [[60,'祈願 ×1','16'],[W/2+20,'祈願 ×10','160']]){const w=W/2-80;rr(c,x,920,w,96,24,x>100?'#f2c14e':'#3a2c50',x>100?null:'#8a7aa0');c.fillStyle=x>100?'#2a1a06':'#fff';F(c,30);c.fillText(t,x+w/2,962);JADE(c,x+w/2-26,992,10);F(c,20);c.textAlign='left';c.fillText(p,x+w/2-10,1000);c.textAlign='center'}
+  c.fillStyle='#b9ad96';F(c,16,'normal');c.fillText('重複獲得的造型會轉為仙緣碎片・祈願紀錄可在「紀錄」查詢',W/2,1060);
+  // 其他獎品預覽
+  const mini=[OUTFIT[3],OUTFIT[1],OUTFIT[0]];mini.forEach((O,i)=>{const x=W/2+(i-1)*200,y=1160;rr(c,x-84,1086,168,170,16,'#1c1628',O.rc,2);c.save();c.beginPath();c.roundRect(x-84,1086,168,170,16);c.clip();hero(c,O,x,1150,1.5,0);c.restore();c.fillStyle=O.rc;F(c,17);c.fillText(O.n,x,1244)})}
+
+// ================= 輸出 =================
+window.render=(which)=>{const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+  if(which.startsWith('lineup')){cv.width=1400;cv.height=820;lineup(ctx,1400,820,which.endsWith('pix'))}
+  else if(which==='outfits'){cv.width=1400;cv.height=900;outfits(ctx,1400,900)}
+  else if(which==='shop'){cv.width=720;cv.height=1280;shop(ctx,720,1280)}
+  else if(which==='gacha'){cv.width=720;cv.height=1280;gacha(ctx,720,1280)}
+  else{cv.width=720;cv.height=1280;scene(ctx,720,1280,which.endsWith('pix'))}
+  return cv.toDataURL('image/png')};
+</script></body></html>
