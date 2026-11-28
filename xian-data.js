@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.XD = factory();
 })(this, function () {
-  const VERSION = '0.3.0';
+  const VERSION = '0.4.0';
   const TITLE = '萬妖仙途';
 
   // ---------------- 境界：5 個大境界 × 初／中／後 = 15 階 ----------------
@@ -177,6 +177,46 @@
   };
   const ITEM_SLOTS = 3;
 
+  // ---------------- 闖關：每個大境界一個區域，區域裡有數張自由地圖 ----------------
+  // walls：樹牆 [x1,y1,x2,y2]；camps：固定怪群 [x,y,妖獸,數量]；elite：精英 [x,y,妖獸]；boss：守關者 [x,y,妖獸]
+  const REGIONS = [
+    { n: '青雲山', realm: 0, d: '練氣期的歷練之地，山頂有白額虎王鎮守', stages: [
+      { n: '山腳獵道', w: 640, h: 1300, start: [320, 1235], portal: [320, 80],
+        walls: [[200, 900, 640, 900], [0, 480, 440, 480]],
+        camps: [[110, 1150, 'wolf', 4], [540, 1130, 'snake', 4], [420, 1010, 'wolf', 5], [90, 780, 'snake', 4], [330, 700, 'wolf', 5], [560, 620, 'snake', 4], [120, 330, 'wolf', 5], [520, 330, 'snake', 5], [300, 190, 'wolf', 4]],
+        elite: [[560, 780, 'boar']], chests: [[40, 1260], [600, 560], [40, 60]] },
+      { n: '幽篁竹林', w: 640, h: 1300, start: [320, 1235], portal: [320, 80],
+        walls: [[0, 950, 450, 950], [190, 620, 640, 620], [0, 300, 450, 300]],
+        camps: [[100, 1110, 'snake', 5], [330, 1060, 'wolf', 5], [560, 1150, 'ape', 3], [450, 800, 'ape', 3], [120, 820, 'wolf', 5], [560, 720, 'snake', 4], [100, 450, 'ape', 3], [330, 480, 'wolf', 5], [540, 420, 'snake', 4], [150, 150, 'ape', 4], [500, 140, 'wolf', 5]],
+        elite: [[300, 800, 'boar']], chests: [[600, 1260], [40, 700], [600, 40]] },
+      { n: '虎嘯崖', w: 640, h: 1300, start: [320, 1235], portal: [320, 70], bossStage: 1,
+        walls: [[200, 950, 640, 950], [0, 600, 440, 600]],
+        camps: [[100, 1150, 'ape', 3], [520, 1120, 'wolf', 5], [420, 1040, 'snake', 5], [100, 800, 'ape', 4], [330, 760, 'wolf', 5], [560, 700, 'ape', 3], [120, 470, 'wolf', 5], [520, 460, 'snake', 5]],
+        elite: [[560, 830, 'boar'], [90, 380, 'boar']], chests: [[600, 1260], [40, 700], [600, 380]], boss: [320, 230, 'tigerking'] },
+    ] },
+  ];
+  const regionOf = realm => REGIONS.findIndex(R => R.realm === realm);
+  // 闖關技能：普攻自動（門派主招式），另外 3 個技能鍵 + 1 個大招鍵，要自己按
+  // dur：持續秒數（0 = 放一次）；boost：數值倍率
+  const STAGE_SK = {
+    sword: [
+      { k: 'jianqi', n: '劍氣斬', icon: '斬', cd: 5, dur: 0, lv: 4, boost: { dmg: 1.6, rad: 1.25 }, d: '以身為中心斬出一圈劍氣，震退妖獸' },
+      { k: 'jianhuan', n: '劍陣', icon: '陣', cd: 14, dur: 8, lv: 5, boost: { cnt: 2, dmg: 1.6 }, d: '飛劍繞身結陣，持續 8 秒' },
+      { k: 'jianyu', n: '劍雨', icon: '雨', cd: 10, dur: 2.5, lv: 4, boost: { cd: 0.35, cnt: 2 }, d: '飛劍從天而降，落在附近的妖獸群中' },
+    ],
+  };
+  function stageSkills(p) {
+    const S = SECTS[p.sect];
+    const sk = STAGE_SK[p.sect] || SECT_SK[p.sect].map(k => { const t = SK[k].t, keep = t === 'aura' || t === 'orbit';
+      return { k, n: SK[k].n, icon: SK[k].icon, cd: keep ? 14 : 10, dur: keep ? 8 : 3, lv: 4, boost: keep ? { dmg: 1.5 } : { cd: 0.5, dmg: 1.3 }, d: SK[k].d }; });
+    const mk = p.path ? S.paths[p.path] : S.paths.z, uk = (p.path && SK[mk].evo) ? SK[mk].evo.to : mk;
+    const ult = p.sect === 'sword'
+      ? { k: p.path === 'x' ? 'xuehai' : 'wanjianzz', n: p.path === 'x' ? '血海魔劍' : '萬劍歸宗', icon: p.path === 'x' ? '血' : '萬', cd: 40, dur: 5, lv: 5, boost: { dmg: 1.5 }, d: '萬劍齊出，橫掃一切妖獸', ult: 1 }
+      : { k: uk, n: SK[uk].n, icon: SK[uk].icon, cd: 45, dur: 6, lv: 5, boost: { dmg: 1.5, cd: 0.6 }, d: SK[uk].d, ult: 1 };
+    return [...sk, ult];
+  }
+  const STAGE_RW = { cult: { kill: 1.5, elite: 15, chest: 10, clear: 40 }, stone: { kill: 0.5, elite: 5, chest: 8, clear: 20 }, first: 2, firstJade: 10 };
+
   // ---------------- 洞府（永久升級，花靈石） ----------------
   const CAVE = {
     gengu: { n: '根骨', d: '氣血 +8%', fx: { hp: 0.08 }, max: 20 },
@@ -286,7 +326,7 @@
     if (!p) return p;
     if (!p.look) { p.look = cleanLook(null, p.sect); p.mirrorFree = 1; } // 舊角色：沿用門派原本的樣子，第一次易容免費
     if (p.jade == null) p.jade = JADE.start; if (!p.own) p.own = []; if (!p.wear) p.wear = {};
-    if (p.shards == null) p.shards = 0; if (p.pity == null) p.pity = 0; if (p.pity10 == null) p.pity10 = 0; if (!p.glog) p.glog = []; if (!p.daily) p.daily = ''; if (!p.orders) p.orders = []; if (!p.firstPay) p.firstPay = []; if (p.card === undefined) p.card = null;
+    if (p.shards == null) p.shards = 0; if (p.pity == null) p.pity = 0; if (p.pity10 == null) p.pity10 = 0; if (!p.glog) p.glog = []; if (!p.daily) p.daily = ''; if (!p.orders) p.orders = []; if (!p.firstPay) p.firstPay = []; if (p.card === undefined) p.card = null; if (!p.qy) p.qy = { c: [], b: [] };
     return p;
   }
   function gachaRoll(p, rnd) {
@@ -304,7 +344,7 @@
   }
 
   // ---------------- 規則數值 ----------------
-  const RUN = { normal: 300, tribulation: 180, forbidden: 300, atone: 180, entry: 180, punish: 180 }; // 一局秒數（到時間後王出現）
+  const RUN = { stage: 3600, normal: 300, tribulation: 180, forbidden: 300, atone: 180, entry: 180, punish: 180 }; // 一局秒數（到時間後王出現）
   const RULE = {
     deathKeep: 0.5,            // 一般陣亡：戰利品帶走一半
     injuryRuns: 3, injuryMul: 0.8, // 重傷：之後幾局屬性 ×0.8
@@ -330,7 +370,7 @@
       cave: {}, items: [], equip: [], puppet: 0, injury: 0, soulInjury: 0, soulCd: 0,
       runs: 0, kills: 0, best: 0, cd: 0, karma: 0, rebuildTo: -1, expelled: 0,
       formerSect: '', returnLeft: 1, hunt: null, pending: null, log: [], created: Date.now(),
-      jade: JADE.start, own: [], wear: {}, shards: 0, pity: 0, pity10: 0, glog: [], daily: '', orders: [], firstPay: [], card: null };
+      jade: JADE.start, own: [], wear: {}, shards: 0, pity: 0, pity10: 0, glog: [], daily: '', orders: [], firstPay: [], card: null, qy: { c: [], b: [] } };
   }
   const isZ = p => p.path === 'z', isX = p => p.path === 'x';
   const mainSkill = p => (p.path ? SECTS[p.sect].paths[p.path] : SECTS[p.sect].base);
@@ -356,7 +396,8 @@
     return r;
   }
   const clampDao = d => Math.max(-100, Math.min(100, Math.round(d)));
-  const canTribulate = p => p.stage % 3 === 2 && p.cult >= NEED[p.stage] && p.stage < STAGEN - 1;
+  const bossOk = p => { const rg = regionOf(realmOf(p.stage)); return rg < 0 || !!(p.qy && p.qy.b[rg]); }; // 有區域的大境界，要先打倒守關者
+  const canTribulate = p => p.stage % 3 === 2 && p.cult >= NEED[p.stage] && p.stage < STAGEN - 1 && bossOk(p);
   const logp = (p, t) => { p.log.unshift({ t, at: Date.now() }); p.log.length = Math.min(p.log.length, 30); };
 
   // 加修為：自動在同一個大境界內升小階；後期滿了停住（要渡劫）
@@ -371,7 +412,37 @@
 
   // ---------------- 一局的結算 ----------------
   // 報告 r：{ mode, sec, kills, elites, boss(0/1), died, dao, stone(局內撿到的靈石數), hunterTier(擊殺到第幾級追殺者, -1 沒殺), item(撿到的法寶 key) }
+  function settleStage(p, r, srv) {
+    const out = { cult: 0, stone: 0, msgs: [] }, rg = r.rg | 0, R = REGIONS[rg], st = r.st | 0;
+    if (!R || !R.stages[st]) { out.msgs.push('沒有這個關卡'); return out; }
+    const cl = p.qy.c[rg] || 0; if (st > cl) { out.msgs.push('還沒解鎖這一關'); return out; }
+    const S = R.stages[st], sec = Math.max(0, Math.min(r.sec | 0, RUN.stage));
+    if (srv && srv.elapsed != null && srv.elapsed < sec - 8) { out.msgs.push('時間不符，這局不予計算'); return out; }
+    const total = S.camps.reduce((a, c) => a + c[3], 0) + S.elite.length + (S.boss ? 1 : 0);
+    const kills = Math.max(0, Math.min(r.kills | 0, total + 80)), elites = Math.max(0, Math.min(r.elites | 0, S.elite.length + (S.boss ? 1 : 0)));
+    const chests = Math.max(0, Math.min(r.chests | 0, S.chests.length)), bossKill = !!S.boss && !!r.boss;
+    const clear = !!r.clear && !r.died && sec >= 12 && (!S.boss || bossKill), first = clear && st === cl;
+    const f = sumFx(p), mul = Math.pow(1.9, R.realm), W = STAGE_RW;
+    let cult = (kills * W.cult.kill + elites * W.cult.elite + chests * W.cult.chest + (clear ? W.cult.clear : 0)) * mul * (1 + f.cult);
+    let stone = (kills * W.stone.kill + elites * W.stone.elite + chests * W.stone.chest + (r.stone | 0) * 2 + (clear ? W.stone.clear : 0)) * mul * (1 + f.stone);
+    if (first) cult *= W.first;
+    if (p.hardcore) cult *= RULE.hardcoreMul; if (p.rebuildTo >= 0) cult *= RULE.rebuildMul;
+    p.runs++; p.kills += kills;
+    if (p.injury > 0) p.injury--; if (p.soulInjury > 0) p.soulInjury--; if (p.soulCd > 0) p.soulCd--; if (p.cd > 0) p.cd--; if (p.karma > 0) p.karma--;
+    if (r.died) {
+      if (p.hardcore) { p.dead = Date.now(); logp(p, `於 ${stageName(p.stage)} 身死道消，一命修仙至此終結`); out.msgs.push('一命修仙……你的仙途在此終結。'); return out; }
+      cult *= RULE.deathKeep; stone *= RULE.deathKeep; out.msgs.push('不敵妖獸，只帶回一半戰利品');
+    }
+    cult = Math.round(cult); stone = Math.round(stone); out.cult = cult; out.stone = stone; p.stone += stone;
+    if (first) { p.qy.c[rg] = st + 1; p.jade += W.firstJade; out.msgs.push(`首次通關「${S.n}」：修為加倍、仙玉 +${W.firstJade}`); }
+    if (clear && S.boss && !p.qy.b[rg]) { p.qy.b[rg] = 1; out.msgs.push(`守關者伏誅！${R.n}已平定，渡劫任務開啟`); logp(p, `平定${R.n}，擊敗守關者`); }
+    if (r.item && ITEMS[r.item] && bossKill && clear && !p.items.includes(r.item)) { p.items.push(r.item); if (p.equip.length < ITEM_SLOTS) p.equip.push(r.item); out.msgs.push(`獲得法寶「${ITEMS[r.item].n}」`); }
+    if (clear) { const day = today(); if (p.daily !== day) { p.daily = day; p.jade += JADE.daily; out.msgs.push(`今日首勝，獲得仙玉 ${JADE.daily}`); } }
+    addCult(p, cult);
+    return out;
+  }
   function settleRun(p, r, srv) {
+    if (r.mode === 'stage') return settleStage(p, r, srv);
     const mode = r.mode, f = sumFx(p), out = { cult: 0, stone: 0, msgs: [] };
     const sec = Math.max(0, Math.min(r.sec | 0, (RUN[mode] || 300) + 600));
     let kills = Math.max(0, Math.min(r.kills | 0, Math.ceil(sec * MAX_KPS) + 50));
@@ -552,14 +623,15 @@
   }
   // 能進哪些關卡
   function modes(p) {
-    const m = [{ k: 'normal', n: `歷練・${MAPS[realmOf(p.stage)].n}`, ok: true }];
+    const m = [{ k: 'normal', n: `秘境・${MAPS[realmOf(p.stage)].n}`, ok: true }];
     if (p.pending && p.pending.trial) { const n = { atone: '洗心池試煉', entry: '入門試煉（投名狀）', punish: '宗門懲戒' }[p.pending.trial]; m.unshift({ k: p.pending.trial, n, ok: true, hot: 1 }); }
-    if (p.stage % 3 === 2 && p.stage < STAGEN - 1) m.push({ k: 'tribulation', n: p.stage === PATH_STAGE - 1 ? '渡劫・心魔劫' : '渡劫', ok: canTribulate(p), why: canTribulate(p) ? '' : '修為未滿' });
+    if (p.stage % 3 === 2 && p.stage < STAGEN - 1) m.push({ k: 'tribulation', n: p.stage === PATH_STAGE - 1 ? '渡劫・心魔劫' : '渡劫', ok: canTribulate(p), why: canTribulate(p) ? '' : p.cult < NEED[p.stage] ? '修為未滿' : '未擊敗守關者' });
+    m.push({ k: 'stage', n: '闖關', ok: true, hidden: 1 });
     if (p.stage >= FORBID_STAGE) m.push({ k: 'forbidden', n: '禁地（收益×2，死亡即身死道消）', ok: true, danger: 1 });
     return m;
   }
 
   return { LOOK, cleanLook, PAY, payGrant, today, RARITY, COS, COS_TYPES, GACHA, JADE, ensure, VERSION, TITLE, REALMS, STAGES, STAGEN, NEED, stageName, realmOf, PATH_STAGE, FORBID_STAGE, SOUL_STAGE, MAPS, MON, MAPMUL, HUNTER_TIERS, HUNTER_MUL,
     SECTS, PATHN, PATHLINE, SK, SECT_SK, SIDE, SIDE_DAO, PASSIVE, MAX_ACT, MAX_PAS, MAX_SIDE, MAXLV, EVENTS, ITEMS, ITEM_SLOTS, CAVE, caveCost, PUPPET_COST,
-    RUN, RULE, baseAtk, baseHp, MAX_KPS, newProfile, mainSkill, lineName, sumFx, runStats, heartDemonRate, canTribulate, act, modes, clampDao };
+    REGIONS, regionOf, STAGE_SK, stageSkills, STAGE_RW, bossOk, RUN, RULE, baseAtk, baseHp, MAX_KPS, newProfile, mainSkill, lineName, sumFx, runStats, heartDemonRate, canTribulate, act, modes, clampDao };
 });

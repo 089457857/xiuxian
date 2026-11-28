@@ -286,7 +286,7 @@
     const fl = map.flower || ['#ffd84a', '#ff9ab0', '#ffffff'];
     for (let i = 0; i < 7; i++) { const tx = rnd() * CH, ty = rnd() * CH, col = fl[(rnd() * fl.length) | 0]; for (let k = 0; k < 5; k++) { const a = k * 1.256; x.fillStyle = col; x.beginPath(); x.arc(tx + Math.cos(a) * 1.6, ty + Math.sin(a) * 1.6, 1.2, 0, 7); x.fill(); } x.fillStyle = '#ffe27a'; x.beginPath(); x.arc(tx, ty, .9, 0, 7); x.fill(); }
     for (let i = 0; i < 2; i++) { const tx = rnd() * CH, ty = rnd() * CH, s = .6 + rnd() * .6; x.fillStyle = '#00000030'; x.beginPath(); x.ellipse(tx, ty + 3 * s, 8 * s, 2.5 * s, 0, 0, 7); x.fill(); x.fillStyle = map.rock || '#8a8f99'; x.beginPath(); x.ellipse(tx, ty, 7 * s, 4.5 * s, 0, 0, 7); x.fill(); x.fillStyle = shade(map.rock || '#8a8f99', .3); x.beginPath(); x.ellipse(tx - 1.5 * s, ty - 1.5 * s, 3.5 * s, 2 * s, 0, 0, 7); x.fill(); }
-    if (rnd() < .7) { const tx = 20 + rnd() * (CH - 40), ty = 20 + rnd() * (CH - 40), s = .8 + rnd() * .5, tc = map.tree || ['#2f6a2a', '#3a7a30', '#4a9a3c'];
+    if (rnd() < .7 && !map.noTree) { const tx = 20 + rnd() * (CH - 40), ty = 20 + rnd() * (CH - 40), s = .8 + rnd() * .5, tc = map.tree || ['#2f6a2a', '#3a7a30', '#4a9a3c'];
       x.fillStyle = '#00000035'; x.beginPath(); x.ellipse(tx, ty + 2 * s, 12 * s, 4 * s, 0, 0, 7); x.fill(); x.fillStyle = map.trunk || '#6a4a2a'; x.fillRect(tx - 1.8 * s, ty - 8 * s, 3.6 * s, 10 * s);
       for (const [dx, dy, r, ci] of [[0, -17, 11, 0], [-6, -13, 8, 1], [6, -14, 8, 1], [-2, -21, 6, 2], [3, -17, 4, 2]]) { x.fillStyle = tc[ci]; x.beginPath(); x.arc(tx + dx * s, ty + dy * s, r * s, 0, 7); x.fill(); } }
     if (GROUND.size > 40) GROUND.delete(GROUND.keys().next().value);
